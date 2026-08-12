@@ -2,10 +2,13 @@ import { useId, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import type { SearchRequest } from "../lib/types";
+import { useCyclingMessage } from "../lib/useCyclingMessage";
 
 interface SearchFormProps {
   onSubmit: (req: SearchRequest) => void;
   isSubmitting: boolean;
+  /** Rotating "thinking" lines shown in place of the button label while submitting. */
+  thinkingMessages?: string[];
 }
 
 const FILTER_FIELDS = [
@@ -15,11 +18,12 @@ const FILTER_FIELDS = [
   { key: "aliases", label: "Aliases", placeholder: "e.g. Jon Smith, JSmith" },
 ] as const;
 
-export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
+export function SearchForm({ onSubmit, isSubmitting, thinkingMessages }: SearchFormProps) {
   const [name, setName] = useState("");
   const [filters, setFilters] = useState({ country: "", age_range: "", occupation: "", aliases: "" });
   const [showFilters, setShowFilters] = useState(false);
   const filtersId = useId();
+  const thinking = useCyclingMessage(thinkingMessages && thinkingMessages.length > 0 ? thinkingMessages : "Searching…");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -130,8 +134,19 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-            Searching…
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden="true" />
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={thinking}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="font-mono text-sm font-normal"
+              >
+                {thinking}
+              </motion.span>
+            </AnimatePresence>
           </>
         ) : (
           "Search"
