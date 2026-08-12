@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { searchPerson, selectCandidate, THINKING_MESSAGES } from "../lib/mockApi";
-import type { Candidate, ProfileResponse, SearchRequest } from "../lib/types";
+import { personSearchService } from "../lib/personSearchService";
+import { THINKING_MESSAGES } from "../lib/thinkingMessages";
+import type { ApiError, Candidate, ProfileResponse, SearchRequest } from "../lib/types";
 import { SearchForm } from "./SearchForm";
 import { CandidatePicker } from "./CandidatePicker";
 import { ProfileView } from "./ProfileView";
@@ -22,6 +23,10 @@ type FlowState =
 // which thinking-message list the (still-visible) search button cycles through.
 type SearchPhase = "search" | "profile";
 
+function errorMessage(err: unknown): string {
+  return err && typeof err === "object" && "message" in err ? String((err as ApiError).message) : "Something went wrong.";
+}
+
 export default function App() {
   const [state, setState] = useState<FlowState>({ step: "form" });
   const [searchPhase, setSearchPhase] = useState<SearchPhase>("search");
@@ -30,7 +35,7 @@ export default function App() {
     setSearchPhase("search");
     setState({ step: "searching" });
     try {
-      const res = await searchPerson(req);
+      const res = await personSearchService.search(req);
       if (res.candidates.length === 0) {
         setState({ step: "empty" });
         return;
@@ -39,14 +44,13 @@ export default function App() {
         // Stay on "searching" — the button keeps thinking, just about the profile now — instead
         // of a second standalone box for a candidate the user never explicitly picked.
         setSearchPhase("profile");
-        const profile = await selectCandidate(res.search_id, res.candidates[0].id);
+        const profile = await personSearchService.select(res.search_id, res.candidates[0].id);
         setState({ step: "profile", profile });
         return;
       }
       setState({ step: "picker", searchId: res.search_id, candidates: res.candidates });
     } catch (err) {
-      const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "Something went wrong.";
-      setState({ step: "error", message });
+      setState({ step: "error", message: errorMessage(err) });
     }
   }, []);
 
@@ -56,11 +60,10 @@ export default function App() {
       // that deliberate action earns its own standalone "reviewing your pick" box.
       setState({ step: "loading-profile" });
       try {
-        const profile = await selectCandidate(searchId, candidateId);
+        const profile = await personSearchService.select(searchId, candidateId);
         setState({ step: "profile", profile });
       } catch (err) {
-        const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "Something went wrong.";
-        setState({ step: "error", message });
+        setState({ step: "error", message: errorMessage(err) });
       }
     },
     [],
