@@ -176,7 +176,7 @@ const DEV_TRIGGERS = {
 };
 
 export async function searchPerson(req: SearchRequest): Promise<SearchResponse> {
-  await delay(1600);
+  await delay(4000);
 
   const trimmed = req.name.trim();
   const name = trimmed.toLowerCase();
@@ -209,6 +209,6 @@ export async function searchPerson(req: SearchRequest): Promise<SearchResponse> 
 }
 
 export async function selectCandidate(_searchId: string, _candidateId: string): Promise<ProfileResponse> {
-  await delay(2400);
+  await delay(6000);
   return PROFILE_FIXTURE;
 }
