@@ -17,7 +17,7 @@ Not the scraping. It's **name collision** — "John Smith" is 500 different peop
 
 ```mermaid
 flowchart TD
-    A[Landing page: name + filters] --> B[Broad search<br/>Google Custom Search API]
+    A[Landing page: name + filters] --> B[Broad search<br/>SearXNG + Tavily fallback]
     B --> C[LLM clusters results into N candidates<br/>photo + short bio snippet each]
     C --> D{N == 1?}
     D -- yes --> F[Auto-select the one candidate]
@@ -33,11 +33,11 @@ Full field list: see [DATA_MODEL.md](./DATA_MODEL.md). Endpoint shapes: see [API
 ## Phases
 
 **POC (now)**
-- Astro static frontend + FastAPI backend — see [ARCHITECTURE.md](./ARCHITECTURE.md)
-- Search: Google Custom Search JSON API
-- Deep dive: scoped search queries + direct page fetch (server-side, no CORS issue)
+- Astro static frontend + FastAPI backend, running locally via Docker Compose with hot reload on both sides — see [ARCHITECTURE.md](./ARCHITECTURE.md)
+- Free-tier-first stack, deliberately: SearXNG (self-hosted) + Tavily fallback for search, Groq + Ollama + OpenRouter for the LLM — no paid API required to run the POC end to end. See [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md) and [LLM_PIPELINE.md](./LLM_PIPELINE.md) for why each was picked over the alternatives.
+- Deep dive: scoped search queries + direct page fetch (server-side, no CORS issue), including best-effort public discovery on Instagram/Facebook/X/LinkedIn/TikTok/YouTube via search — never authenticated scraping
 - Storage: SQLite
-- Single source: public web search only
+- Public web + public-search-indexed social presence only — nothing behind a login wall
 
 **Later, add only when it's the actual bottleneck**
 - LinkedIn / social media connectors (each is its own ToS minefield, opt-in modules)
