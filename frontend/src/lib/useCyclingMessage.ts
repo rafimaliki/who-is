@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** Cycles through a list of "thinking" lines on an interval — a static message otherwise. */
-export function useCyclingMessage(message: string | string[], intervalMs = 850) {
+export function useCyclingMessage(message: string | string[], intervalMs = 1600) {
   const messages = Array.isArray(message) ? message : [message];
   const [index, setIndex] = useState(0);
 

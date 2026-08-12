@@ -22,5 +22,19 @@ const { title, description, noindex = false } = Astro.props;
   </head>
   <body class="min-h-screen bg-canvas text-ink antialiased">
     <slot />
+    <script>
+      import Lenis from "lenis";
+
+      // Global lerped/inertia scroll — the landing page has nothing to scroll (single viewport,
+      // by design) so this is a no-op there; how-it-works and the /app flow (candidate lists,
+      // long profiles) get the smooth-follow feel instead of the browser's discrete scroll.
+      const lenis = new Lenis({ lerp: 0.1 });
+
+      function raf(time: number) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+    </script>
   </body>
 </html>

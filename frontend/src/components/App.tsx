@@ -16,10 +16,18 @@ type FlowState =
   | { step: "empty" }
   | { step: "error"; message: string };
 
+// The "searching" step covers two different waits depending on outcome: while we don't yet know
+// whether there's one match or several, and then — only when there's exactly one, so it resolves
+// silently with no picker click to hang a second box on — the profile build too. This just swaps
+// which thinking-message list the (still-visible) search button cycles through.
+type SearchPhase = "search" | "profile";
+
 export default function App() {
   const [state, setState] = useState<FlowState>({ step: "form" });
+  const [searchPhase, setSearchPhase] = useState<SearchPhase>("search");
 
   const runSearch = useCallback(async (req: SearchRequest) => {
+    setSearchPhase("search");
     setState({ step: "searching" });
     try {
       const res = await searchPerson(req);
@@ -28,7 +36,9 @@ export default function App() {
         return;
       }
       if (res.auto_selected) {
-        setState({ step: "loading-profile" });
+        // Stay on "searching" — the button keeps thinking, just about the profile now — instead
+        // of a second standalone box for a candidate the user never explicitly picked.
+        setSearchPhase("profile");
         const profile = await selectCandidate(res.search_id, res.candidates[0].id);
         setState({ step: "profile", profile });
         return;
@@ -42,6 +52,8 @@ export default function App() {
 
   const runSelect = useCallback(
     async (searchId: string, candidateId: string) => {
+      // Here the user *did* explicitly pick a candidate off a list that's no longer on screen —
+      // that deliberate action earns its own standalone "reviewing your pick" box.
       setState({ step: "loading-profile" });
       try {
         const profile = await selectCandidate(searchId, candidateId);
@@ -56,17 +68,15 @@ export default function App() {
 
   const reset = useCallback(() => setState({ step: "form" }), []);
 
+  const showForm = state.step !== "picker" && state.step !== "loading-profile" && state.step !== "profile";
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-16">
-      {/* Stays mounted through both loading phases (searching + loading-profile) so it never
-          vanishes mid-wait regardless of path — the auto-selected "skip" path used to lose it
-          the moment it left "searching". Steps aside once there's real content on screen (the
-          candidate list or the final profile) so that content gets full focus. */}
-      {state.step !== "picker" && state.step !== "profile" && (
+      {showForm && (
         <SearchForm
           onSubmit={runSearch}
           isSubmitting={state.step === "searching"}
-          thinkingMessages={THINKING_MESSAGES.search}
+          thinkingMessages={searchPhase === "search" ? THINKING_MESSAGES.search : THINKING_MESSAGES.profile}
         />
       )}
 
