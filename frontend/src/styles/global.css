@@ -1,34 +1,50 @@
 @import "tailwindcss";
-@import "@fontsource-variable/fraunces";
-@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource/syne/600.css";
+@import "@fontsource/syne/700.css";
+@import "@fontsource/syne/800.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 
 @theme {
-  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
-  --font-body: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
-  /* Warm, editorial "detective notebook" palette — deliberately not a generic blue/gray SaaS look */
-  --color-cream: #fbf6ef;
+  /* "Case file" system — cool neutrals, brand color (indigo) kept separate from status
+     color (green/amber/rose), sharp corners, no warm cream/serif-cliche territory. */
+  --color-canvas: #f1f2f6;
   --color-paper: #ffffff;
-  --color-ink: #211d1a;
-  --color-ink-soft: #6b6259;
-  --color-ink-faint: #a89e8f;
-  --color-border: #e7dfd2;
+  --color-ink: #0b0d12;
+  --color-ink-soft: #545b66;
+  --color-ink-faint: #9aa1ac;
+  --color-border: #d8dbe3;
 
-  --color-coral: #ff5a36;
-  --color-coral-dark: #e1451f;
-  --color-coral-light: #ffe4da;
+  --color-indigo: #3654ff;
+  --color-indigo-dark: #2740d6;
+  --color-indigo-tint: #e4e9ff;
 
-  --color-violet: #5b3df5;
-  --color-violet-dark: #4527d6;
-  --color-violet-light: #e7e2ff;
+  --color-rose: #f0266f;
+  --color-rose-dark: #c91159;
+  --color-rose-tint: #ffe1ec;
 
-  --color-mint: #1fa97f;
-  --color-mint-light: #d9f3e8;
+  --color-amber: #f5a200;
+  --color-amber-dark: #c98200;
+  --color-amber-tint: #fef0d1;
 
-  --shadow-card: 0 1px 2px rgba(33, 29, 26, 0.04), 0 8px 24px -12px rgba(33, 29, 26, 0.18);
+  --color-green: #12b76a;
+  --color-green-dark: #0d8f52;
+  --color-green-tint: #d8f5e6;
+
+  --shadow-flat: 2px 2px 0 0 var(--color-ink);
+  --shadow-flat-sm: 1.5px 1.5px 0 0 var(--color-ink);
+  --shadow-flat-indigo: 2px 2px 0 0 var(--color-indigo);
 
   --animate-fade-up: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-cycle: cycle-msg 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes fade-up {
@@ -51,14 +67,25 @@
   }
 }
 
+@keyframes cycle-msg {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 html,
 body {
-  background-color: var(--color-cream);
+  background-color: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
 
 ::selection {
-  background-color: var(--color-coral-light);
-  color: var(--color-coral-dark);
+  background-color: var(--color-indigo-tint);
+  color: var(--color-indigo-dark);
 }

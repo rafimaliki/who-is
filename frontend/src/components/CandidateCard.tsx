@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { motion, useMotionValue, animate } from "motion/react";
 import { User } from "lucide-react";
 import type { Candidate } from "../lib/types";
 
@@ -11,9 +11,9 @@ interface CandidateCardProps {
 
 // Rotates per card so a run of results doesn't read as one flat color block.
 const AVATAR_PALETTE = [
-  { bg: "bg-coral-light", text: "text-coral-dark" },
-  { bg: "bg-violet-light", text: "text-violet-dark" },
-  { bg: "bg-mint-light", text: "text-mint" },
+  { bg: "bg-indigo-tint", text: "text-indigo-dark" },
+  { bg: "bg-rose-tint", text: "text-rose-dark" },
+  { bg: "bg-amber-tint", text: "text-amber-dark" },
 ];
 
 function initials(label: string): string {
@@ -22,23 +22,43 @@ function initials(label: string): string {
   return chars.join("").toUpperCase();
 }
 
-// Higher confidence reads as settled (mint), lower reads as tentative (coral) — same
+// Higher confidence reads as settled (green), lower reads as tentative (rose) — same
 // three-tier logic a human would apply eyeballing a match score.
 function confidenceStyle(confidence: number) {
   if (confidence >= 0.75) {
-    return { label: "Strong match", bar: "bg-mint", track: "bg-mint-light", text: "text-mint" };
+    return { label: "Strong match", bar: "bg-green", track: "bg-green-tint", text: "text-green-dark" };
   }
   if (confidence >= 0.5) {
-    return { label: "Possible match", bar: "bg-violet", track: "bg-violet-light", text: "text-violet-dark" };
+    return { label: "Possible match", bar: "bg-amber", track: "bg-amber-tint", text: "text-amber-dark" };
   }
-  return { label: "Weak match", bar: "bg-coral", track: "bg-coral-light", text: "text-coral-dark" };
+  return { label: "Weak match", bar: "bg-rose", track: "bg-rose-tint", text: "text-rose-dark" };
+}
+
+/** Counts up from 0 to the target percentage once, on mount — a small "computing this live" beat. */
+function useCountUp(target: number, delayS: number) {
+  const value = useMotionValue(0);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const unsub = value.on("change", (v) => setDisplay(Math.round(v)));
+    const controls = animate(value, target, { duration: 0.7, delay: delayS, ease: [0.16, 1, 0.3, 1] });
+    return () => {
+      unsub();
+      controls.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, delayS]);
+
+  return display;
 }
 
 export function CandidateCard({ candidate, index, onSelect }: CandidateCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const palette = AVATAR_PALETTE[index % AVATAR_PALETTE.length]!;
   const confidence = confidenceStyle(candidate.confidence);
-  const pct = Math.round(candidate.confidence * 100);
+  const targetPct = Math.round(candidate.confidence * 100);
+  const delayS = 0.35 + index * 0.08;
+  const pct = useCountUp(targetPct, delayS);
   const initialsText = initials(candidate.label);
 
   return (
@@ -47,21 +67,21 @@ export function CandidateCard({ candidate, index, onSelect }: CandidateCardProps
       onClick={onSelect}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.99 }}
-      className="flex w-full items-start gap-4 rounded-2xl border border-border bg-paper p-4 text-left shadow-card transition-[border-color,box-shadow] hover:border-coral hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 focus-visible:ring-offset-cream sm:p-5"
+      transition={{ duration: 0.4, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ x: -2, y: -2 }}
+      whileTap={{ x: 0, y: 0 }}
+      className="flex w-full items-start gap-4 border-[1.5px] border-ink bg-paper p-4 text-left shadow-flat transition-shadow hover:shadow-[4px_4px_0_0_var(--color-ink)] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:p-5"
     >
       {candidate.photo_url && !imgFailed ? (
         <img
           src={candidate.photo_url}
           alt=""
           onError={() => setImgFailed(true)}
-          className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-14 sm:w-14"
+          className="h-12 w-12 shrink-0 rounded-md border-[1.5px] border-ink object-cover sm:h-14 sm:w-14"
         />
       ) : (
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display text-base font-medium sm:h-14 sm:w-14 sm:text-lg ${palette.bg} ${palette.text}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md border-[1.5px] border-ink font-display text-base font-bold sm:h-14 sm:w-14 sm:text-lg ${palette.bg} ${palette.text}`}
         >
           {initialsText ? initialsText : <User className="h-5 w-5" aria-hidden="true" />}
         </div>
@@ -74,10 +94,15 @@ export function CandidateCard({ candidate, index, onSelect }: CandidateCardProps
         </div>
 
         <div className="flex items-center gap-2">
-          <div className={`h-1.5 w-full max-w-24 overflow-hidden rounded-full ${confidence.track}`}>
-            <div className={`h-full rounded-full ${confidence.bar}`} style={{ width: `${pct}%` }} />
+          <div className={`h-1.5 w-full max-w-24 overflow-hidden rounded-sm ${confidence.track}`}>
+            <motion.div
+              className={`h-full rounded-sm ${confidence.bar}`}
+              initial={{ width: 0 }}
+              animate={{ width: `${targetPct}%` }}
+              transition={{ duration: 0.7, delay: delayS, ease: [0.16, 1, 0.3, 1] }}
+            />
           </div>
-          <span className={`text-xs font-medium whitespace-nowrap ${confidence.text}`}>
+          <span className={`font-mono text-xs font-medium whitespace-nowrap ${confidence.text}`}>
             {pct}% · {confidence.label}
           </span>
         </div>

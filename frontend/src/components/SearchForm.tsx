@@ -45,11 +45,11 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col gap-6 rounded-2xl border border-border bg-paper p-6 shadow-card sm:p-8"
+      className="flex flex-col gap-6 border-[1.5px] border-ink bg-paper p-6 shadow-flat sm:p-8"
     >
       <div className="flex flex-col gap-2">
-        <h1 className="font-display text-4xl leading-tight text-ink sm:text-5xl">
-          Who is<span className="text-coral">?</span>
+        <h1 className="font-display text-4xl leading-tight font-bold text-ink sm:text-5xl">
+          Who is<span className="text-indigo">?</span>
         </h1>
         <p className="text-sm text-ink-soft sm:text-base">
           Give us a name. We'll dig up what's public and hand you a sourced profile.
@@ -72,7 +72,7 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
             placeholder="e.g. Jane Doe"
             disabled={isSubmitting}
             required
-            className="w-full rounded-xl border border-border bg-paper py-3.5 pl-11 pr-4 text-base text-ink placeholder:text-ink-faint transition-colors focus:border-coral focus:outline-none focus:ring-2 focus:ring-coral-light disabled:opacity-60"
+            className="w-full rounded-md border-[1.5px] border-border bg-paper py-3.5 pl-11 pr-4 text-base text-ink placeholder:text-ink-faint transition-colors focus:border-indigo focus:outline-none focus:ring-2 focus:ring-indigo-tint disabled:opacity-60"
           />
         </div>
       </div>
@@ -83,7 +83,7 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
           onClick={() => setShowFilters((v) => !v)}
           aria-expanded={showFilters}
           aria-controls={filtersId}
-          className="flex w-fit items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-violet"
+          className="flex w-fit items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-indigo"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
           {showFilters ? "Hide filters" : "Add filters"}
@@ -111,7 +111,7 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
                       onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))}
                       placeholder={placeholder}
                       disabled={isSubmitting}
-                      className="rounded-lg border border-border bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-violet focus:outline-none focus:ring-2 focus:ring-violet-light disabled:opacity-60"
+                      className="rounded-md border-[1.5px] border-border bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-indigo focus:outline-none focus:ring-2 focus:ring-indigo-tint disabled:opacity-60"
                     />
                   </div>
                 ))}
@@ -121,10 +121,12 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
         </AnimatePresence>
       </div>
 
-      <button
+      <motion.button
         type="submit"
         disabled={isSubmitting || !name.trim()}
-        className="flex items-center justify-center gap-2 rounded-xl bg-coral px-4 py-3.5 text-base font-semibold text-paper transition-colors hover:bg-coral-dark disabled:cursor-not-allowed disabled:opacity-60"
+        whileHover={!isSubmitting && name.trim() ? { x: -2, y: -2 } : undefined}
+        whileTap={!isSubmitting && name.trim() ? { x: 0, y: 0 } : undefined}
+        className="flex items-center justify-center gap-2 rounded-md border-[1.5px] border-ink bg-indigo px-4 py-3.5 text-base font-semibold text-paper shadow-flat transition-shadow hover:shadow-[4px_4px_0_0_var(--color-ink)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-flat"
       >
         {isSubmitting ? (
           <>
@@ -134,7 +136,7 @@ export function SearchForm({ onSubmit, isSubmitting }: SearchFormProps) {
         ) : (
           "Search"
         )}
-      </button>
+      </motion.button>
     </motion.form>
   );
 }

@@ -7,12 +7,84 @@ import type { Candidate, ProfileResponse, SearchRequest, SearchResponse } from "
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Rotating status lines the UI cycles through while a mock call is "in flight". */
+export const THINKING_MESSAGES = {
+  search: [
+    "Searching public sources…",
+    "Scanning search-indexed social profiles…",
+    "Cross-referencing results…",
+    "Clustering distinct people…",
+  ],
+  profile: [
+    "Reviewing the chosen candidate…",
+    "Fetching public pages…",
+    "Extracting sourced facts…",
+    "Verifying every citation…",
+  ],
+};
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[randomInt(0, arr.length - 1)]!;
+}
+
+/** Illustrated (not real-photo) avatars — matches the app's own stance on not normalizing real face scraping, even in mock data. */
+function avatarUrl(seed: string): string {
+  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}`;
+}
+
+const OCCUPATIONS = [
+  "software engineer",
+  "attorney",
+  "high school teacher",
+  "restaurant owner",
+  "graphic designer",
+  "registered nurse",
+  "marketing manager",
+  "electrician",
+];
+
+const CITIES = ["Seattle", "Chicago", "Austin", "Denver", "Portland", "Raleigh", "Phoenix", "Columbus"];
+
+function generateCandidates(name: string, count: number): Candidate[] {
+  const used = new Set<string>();
+  const candidates: Candidate[] = [];
+
+  for (let i = 0; i < count; i++) {
+    let occupation = pick(OCCUPATIONS);
+    let city = pick(CITIES);
+    let attempts = 0;
+    while (used.has(`${occupation}|${city}`) && attempts < 10) {
+      occupation = pick(OCCUPATIONS);
+      city = pick(CITIES);
+      attempts++;
+    }
+    used.add(`${occupation}|${city}`);
+
+    const id = `gen_${i}_${Math.random().toString(36).slice(2, 8)}`;
+    const confidence = Math.max(0.32, 0.93 - i * 0.16 - Math.random() * 0.06);
+
+    candidates.push({
+      id,
+      label: `${name}, ${occupation}, ${city}`,
+      summary: `Works as a ${occupation}, based in ${city}.`,
+      photo_url: Math.random() < 0.5 ? avatarUrl(id) : null,
+      confidence: Number(confidence.toFixed(2)),
+    });
+  }
+
+  return candidates.sort((a, b) => b.confidence - a.confidence);
+}
+
 const AMBIGUOUS_CANDIDATES: Candidate[] = [
   {
     id: "c_1",
     label: "John Smith, software engineer, Seattle",
     summary: "Backend engineer at Acme Corp, based in Seattle since 2019.",
-    photo_url: null,
+    photo_url: avatarUrl("c_1"),
     confidence: 0.82,
   },
   {
@@ -26,18 +98,10 @@ const AMBIGUOUS_CANDIDATES: Candidate[] = [
     id: "c_3",
     label: "John Smith, musician, Austin",
     summary: "Session guitarist and part-time producer, several regional tour credits.",
-    photo_url: null,
+    photo_url: avatarUrl("c_3"),
     confidence: 0.64,
   },
 ];
-
-const SINGLE_CANDIDATE: Candidate = {
-  id: "c_solo",
-  label: "Jonathan A. Smith, software engineer, Seattle",
-  summary: "Backend engineer at Acme Corp, based in Seattle since 2019.",
-  photo_url: null,
-  confidence: 0.94,
-};
 
 const PROFILE_FIXTURE: ProfileResponse = {
   profile_id: "p_xyz789",
@@ -54,7 +118,7 @@ const PROFILE_FIXTURE: ProfileResponse = {
       { platform: "linkedin", url: "https://linkedin.com/in/jonathan-a-smith", confidence: 0.88 },
       { platform: "x", url: "https://x.com/jsmithdev", confidence: 0.62 },
     ],
-    photos: [],
+    photos: [avatarUrl("jonathan-a-smith")],
     summary:
       "Jonathan Smith is a software engineer based in Seattle, currently working on backend systems at Acme Corp. Previously based in Chicago; graduated from the University of Washington in 2015.",
   },
@@ -104,7 +168,7 @@ const PROFILE_FIXTURE: ProfileResponse = {
   ],
 };
 
-/** Dev-only trigger words in the `name` field, for exercising states with no backend yet. */
+/** Dev-only trigger words in the `name` field, for exercising specific states reliably. */
 const DEV_TRIGGERS = {
   ambiguous: "john smith",
   empty: "test empty",
@@ -112,9 +176,10 @@ const DEV_TRIGGERS = {
 };
 
 export async function searchPerson(req: SearchRequest): Promise<SearchResponse> {
-  await delay(900);
+  await delay(1600);
 
-  const name = req.name.trim().toLowerCase();
+  const trimmed = req.name.trim();
+  const name = trimmed.toLowerCase();
 
   if (name === DEV_TRIGGERS.error) {
     throw { error: "upstream_error", message: "search API or LLM call failed" };
@@ -128,10 +193,22 @@ export async function searchPerson(req: SearchRequest): Promise<SearchResponse> 
     return { search_id: "s_abc123", candidates: AMBIGUOUS_CANDIDATES, auto_selected: false };
   }
 
-  return { search_id: "s_solo456", candidates: [SINGLE_CANDIDATE], auto_selected: true };
+  // A first-name-only search collides with far more real people than a full name does —
+  // weight the odds of an ambiguous result accordingly, same logic an OSINT tool actually needs.
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  const ambiguousChance = wordCount <= 1 ? 0.6 : 0.15;
+  const isAmbiguous = Math.random() < ambiguousChance;
+
+  if (isAmbiguous) {
+    const candidates = generateCandidates(trimmed, randomInt(2, 4));
+    return { search_id: `s_${Date.now()}`, candidates, auto_selected: false };
+  }
+
+  const [single] = generateCandidates(trimmed, 1);
+  return { search_id: `s_${Date.now()}`, candidates: [single!], auto_selected: true };
 }
 
 export async function selectCandidate(_searchId: string, _candidateId: string): Promise<ProfileResponse> {
-  await delay(1400);
+  await delay(2400);
   return PROFILE_FIXTURE;
 }
