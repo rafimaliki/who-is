@@ -18,7 +18,7 @@ flowchart LR
     end
     SEARX[SearXNG<br/>self-hosted metasearch]
     TAVILY[Tavily API<br/>free-tier fallback]
-    LLM[Groq / Ollama / OpenRouter<br/>free-tier LLM]
+    LLM[Groq / OpenRouter<br/>free-tier cloud LLM]
 
     U --> L --> AI
     AI -- fetch/JSON --> API
@@ -39,7 +39,7 @@ flowchart LR
 | Backend | FastAPI (Python, async) | Orchestrates search → cluster → deep dive → extract. Only place holding API keys. |
 | Search provider | SearXNG (self-hosted, primary) + Tavily (free-tier fallback) | Broad + scoped queries, including per-platform `site:` searches. See [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md) for why. |
 | Deep-dive fetch | `httpx` + `BeautifulSoup` | Server-side page fetch on chosen candidate's links only — general web pages and, best-effort, public social profile meta tags. No CORS issue — runs on the backend, not the browser. |
-| LLM | Groq (primary) → Ollama (local fallback) → OpenRouter (secondary fallback), structured output | Clustering call + extraction call. See [LLM_PIPELINE.md](./LLM_PIPELINE.md) for the free-tier-first rationale. |
+| LLM | Groq (primary) → OpenRouter (fallback), structured output, both cloud-hosted | Clustering call + extraction call. See [LLM_PIPELINE.md](./LLM_PIPELINE.md) for the free-tier-first rationale. |
 | Storage | SQLite (file-based) | Searches, candidates, profiles, sources. One file, zero ops for POC. |
 
 ## Why this split
@@ -49,7 +49,7 @@ flowchart LR
 - FastAPI, not a client-only app: real page scraping needs a server (browser `fetch` hits CORS on almost every third-party site) and API keys can't live in browser JS beyond a personal-use POC.
 - SQLite, not Postgres: POC is single-instance, no concurrent-write pressure yet. Swap when that changes — don't build for it now.
 - SearXNG self-hosted, not a paid search API, as the primary provider: it's free with no query cap and no API key, and it runs as just another container next to the app. Google Custom Search — the original pick — closed to new customers in 2025 and shuts down entirely on 2027-01-01, so it's not viable for a fresh signup. Tavily's real (recurring, 1,000/mo) free tier is the fallback when SearXNG comes back thin or isn't running (e.g. a quick cloud demo). Full comparison and why Brave/DuckDuckGo were ruled out: [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md).
-- Groq/Ollama/OpenRouter, not a paid frontier model, for the POC LLM: all three have workable free tiers (or, for Ollama, zero cost and zero rate limit since it's local). Ollama also keeps real people's PII off any third party by default — worth defaulting to for privacy-sensitive dev/testing. Swap in a paid model later only once free-tier throughput or extraction quality is the actual bottleneck. Details: [LLM_PIPELINE.md](./LLM_PIPELINE.md).
+- Groq → OpenRouter, not a paid frontier model, for the POC LLM: both are cloud-hosted with workable free tiers, so there's no local-model ops weight (GPU/RAM sizing, model pulls, slower cold starts) to carry for a POC. Swap in a paid model later only once free-tier throughput or extraction quality is the actual bottleneck. Details: [LLM_PIPELINE.md](./LLM_PIPELINE.md).
 
 ## Local development (Docker)
 
@@ -61,11 +61,9 @@ flowchart TB
         FE["frontend\nastro dev --host\nbind-mount ./frontend"]
         BE["backend\nuvicorn --reload\nbind-mount ./backend"]
         SX["searxng\nofficial image"]
-        OL["ollama (optional profile)\nlocal LLM, no API key"]
     end
     FE <--> BE
     BE --> SX
-    BE -. local-llm profile .-> OL
 ```
 
 | Service | Image/base | Hot reload mechanism |
@@ -73,10 +71,8 @@ flowchart TB
 | `frontend` | `node:*-slim` + Astro | Bind-mount `./frontend:/app`, named volume for `node_modules` (avoids host/container native-module mismatch), `astro dev --host 0.0.0.0`. Vite HMR websocket port published to the host. |
 | `backend` | `python:*-slim` + FastAPI | Bind-mount `./backend:/app`, `uvicorn app.main:app --reload --host 0.0.0.0 --reload-exclude '*.db'` (exclude the SQLite file so writes don't trigger reload storms). |
 | `searxng` | `searxng/searxng` (official) | No app code to reload — config volume only. |
-| `ollama` | `ollama/ollama` (official) | Behind a `local-llm` Compose profile — opt-in, not started by default. Model pulled by a start script/healthcheck on first run. |
 
-- Default profile (`docker compose up`): `frontend` + `backend` + `searxng`, LLM calls go to Groq/OpenRouter using a key from `.env`.
-- `docker compose --profile local-llm up`: adds `ollama` and points the backend's `LLM_PROVIDER` at it — fully offline, zero API keys, nothing leaves the machine.
+- `docker compose up`: `frontend` + `backend` + `searxng`, LLM calls go to Groq/OpenRouter (cloud, see [LLM_PIPELINE.md](./LLM_PIPELINE.md)) using a key from `.env`. No local-model service — both LLM providers are hosted.
 - SQLite file lives in a bind-mounted `./backend/data` directory so it survives container restarts.
 - `docker-compose.yml`, the two `Dockerfile`s, and `.env.example` land alongside the actual backend/frontend scaffolding — this section documents the target shape, not yet-written files.
 
@@ -93,10 +89,10 @@ flowchart TB
 
 | Var | Used by | Notes |
 |---|---|---|
-| `GROQ_API_KEY` | backend | Primary LLM provider. Free tier, no card required. |
-| `OPENROUTER_API_KEY` | backend | Secondary LLM fallback pool. Optional — only needed if Groq's free-tier RPM/RPD is hit. |
+| `GROQ_API_KEY` | backend | Primary LLM provider (cloud). Free tier, no card required. |
+| `OPENROUTER_API_KEY` | backend | Secondary LLM fallback pool (cloud). Optional — only needed if Groq's free-tier RPM/RPD is hit. |
 | `TAVILY_API_KEY` | backend | Search fallback when SearXNG is unavailable or returns thin results. Optional for local dev (SearXNG needs no key at all). |
 | `SEARXNG_URL` | backend | Points at the `searxng` compose service (e.g. `http://searxng:8080`) — not a secret, just config. |
-| `LLM_PROVIDER` | backend | `groq` (default) / `ollama` / `openrouter` — selects the active LLM backend. |
+| `LLM_PROVIDER` | backend | `groq` (default) / `openrouter` — selects the active LLM backend. |
 
-All secrets live server-side only. The frontend never sees an API key. No key at all is required to run the default local-dev stack end-to-end (SearXNG + Ollama), which is deliberate — the free-tier-first stack in [LLM_PIPELINE.md](./LLM_PIPELINE.md) and [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md) means a fresh clone can run without signing up for anything.
+All secrets live server-side only. The frontend never sees an API key. SearXNG needs no key for search; a free `GROQ_API_KEY` (no card) is the one signup required to exercise the LLM calls end-to-end.

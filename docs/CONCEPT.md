@@ -34,7 +34,7 @@ Full field list: see [DATA_MODEL.md](./DATA_MODEL.md). Endpoint shapes: see [API
 
 **POC (now)**
 - Astro static frontend + FastAPI backend, running locally via Docker Compose with hot reload on both sides — see [ARCHITECTURE.md](./ARCHITECTURE.md)
-- Free-tier-first stack, deliberately: SearXNG (self-hosted) + Tavily fallback for search, Groq + Ollama + OpenRouter for the LLM — no paid API required to run the POC end to end. See [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md) and [LLM_PIPELINE.md](./LLM_PIPELINE.md) for why each was picked over the alternatives.
+- Free-tier-first stack, deliberately: SearXNG (self-hosted) + Tavily fallback for search, Groq + OpenRouter (both cloud) for the LLM — no paid API required to run the POC end to end. See [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md) and [LLM_PIPELINE.md](./LLM_PIPELINE.md) for why each was picked over the alternatives.
 - Deep dive: scoped search queries + direct page fetch (server-side, no CORS issue), including best-effort public discovery on Instagram/Facebook/X/LinkedIn/TikTok/YouTube via search — never authenticated scraping
 - Storage: SQLite
 - Public web + public-search-indexed social presence only — nothing behind a login wall
