@@ -1,2 +1,8 @@
 # Claude Code session-local state — not project content
 .claude/scheduled_tasks.lock
+
+# Safety net: each package (e.g. frontend/) has its own .gitignore for these, but a stray
+# install landing at repo root (wrong cwd) should never be able to leak into git either.
+node_modules/
+dist/
+.astro/

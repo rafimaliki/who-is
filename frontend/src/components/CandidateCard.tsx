@@ -22,16 +22,17 @@ function initials(label: string): string {
   return chars.join("").toUpperCase();
 }
 
-// Higher confidence reads as settled (green), lower reads as tentative (rose) — same
-// three-tier logic a human would apply eyeballing a match score.
+// Tonal, not traffic-light: confidence reads through indigo's own intensity (full → half → faint
+// gray) rather than swapping in green/amber/rose, which read as a foreign status-color system
+// dropped onto an otherwise single-accent page.
 function confidenceStyle(confidence: number) {
   if (confidence >= 0.75) {
-    return { label: "Strong match", bar: "bg-green", track: "bg-green-tint", text: "text-green-dark" };
+    return { label: "Strong match", bar: "bg-indigo", track: "bg-indigo-tint", text: "text-indigo-dark" };
   }
   if (confidence >= 0.5) {
-    return { label: "Possible match", bar: "bg-amber", track: "bg-amber-tint", text: "text-amber-dark" };
+    return { label: "Possible match", bar: "bg-indigo/50", track: "bg-border", text: "text-ink-soft" };
   }
-  return { label: "Weak match", bar: "bg-rose", track: "bg-rose-tint", text: "text-rose-dark" };
+  return { label: "Weak match", bar: "bg-ink-faint", track: "bg-border", text: "text-ink-faint" };
 }
 
 /** Counts up from 0 to the target percentage once, on mount — a small "computing this live" beat. */
