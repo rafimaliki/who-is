@@ -13,6 +13,13 @@ Invoke both at session start, no exceptions:
 - `ponytail:ponytail` (full intensity) — lazy-first implementation ladder for all code in this repo.
 - `andrej-karpathy-skills:karpathy-guidelines` — avoid overcomplication, make surgical changes, surface assumptions.
 
+## Project skills
+
+- `git` (`.claude/skills/git/SKILL.md`) — branching, commits, PR creation/merging. Use for every
+  git/GitHub operation in this repo; never run raw `git commit`/`gh pr` conventions ad hoc.
+- `feat` (`.claude/skills/feat/SKILL.md`) — `/feat` end-to-end pipeline: plan → design → review →
+  implement → PR, invoking the `git` skill for all git ops.
+
 ## Non-negotiables (from docs/CONCEPT.md)
 
 - Profile pages are `noindex`, always.
