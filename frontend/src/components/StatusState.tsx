@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Loader2, SearchX, TriangleAlert } from "lucide-react";
+import { useCyclingMessage } from "../lib/useCyclingMessage";
 
 interface StatusStateProps {
   kind: "loading" | "empty" | "error";
@@ -19,24 +19,6 @@ const ICON_STYLES = {
   empty: "text-ink-faint",
   error: "text-rose",
 };
-
-/** Cycles through a list of "thinking" lines on an interval — a static message otherwise. */
-function useCyclingMessage(message: string | string[], intervalMs = 850) {
-  const messages = Array.isArray(message) ? message : [message];
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    setIndex(0);
-    if (messages.length <= 1) return;
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % messages.length);
-    }, intervalMs);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Array.isArray(message) ? message.join("|") : message]);
-
-  return messages[index]!;
-}
 
 export function StatusState({ kind, message, onRetry }: StatusStateProps) {
   const Icon = ICONS[kind];
