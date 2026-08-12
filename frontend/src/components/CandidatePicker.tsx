@@ -1,7 +1,5 @@
 import type { Candidate } from "../lib/types";
-
-// PLACEHOLDER — functional but minimally styled. Replaced by the CandidatePicker feature branch
-// with photo/confidence cards and stagger-in motion. Keep the props contract stable.
+import { CandidateCard } from "./CandidateCard";
 
 interface CandidatePickerProps {
   candidates: Candidate[];
@@ -10,19 +8,20 @@ interface CandidatePickerProps {
 
 export function CandidatePicker({ candidates, onSelect }: CandidatePickerProps) {
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="font-display text-2xl">Which one?</h2>
-      {candidates.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => onSelect(c.id)}
-          className="rounded-xl border border-border bg-paper px-4 py-3 text-left"
-        >
-          <p className="font-medium">{c.label}</p>
-          <p className="text-sm text-ink-soft">{c.summary}</p>
-        </button>
-      ))}
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="font-display text-3xl text-ink">A few people go by that name.</h2>
+        <p className="text-sm text-ink-soft">
+          Pick the one you mean — we'll pull together everything public we can find on them.
+        </p>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {candidates.map((candidate, index) => (
+          <li key={candidate.id}>
+            <CandidateCard candidate={candidate} index={index} onSelect={() => onSelect(candidate.id)} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
