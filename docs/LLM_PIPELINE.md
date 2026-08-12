@@ -67,8 +67,9 @@ Provider stack, checked in this order (see [ARCHITECTURE.md](./ARCHITECTURE.md#w
 | Priority | Provider | Model | Free tier | Notes |
 |---|---|---|---|---|
 | 1 (primary) | Groq | Llama 3.3 70B / Llama 4 Scout | 30 RPM, 6K TPM, 14,400 req/day, no card | Fast inference — good fit for the POC's synchronous (blocking) API. Native JSON-mode/tool-calling for schema-forced output. |
-| 2 (local fallback) | Ollama | Qwen2.5 7B/14B (tool-capable) | Unlimited, $0, runs in the `ollama` Compose profile | Zero rate limit, data never leaves the machine — the safer default whenever the input contains real people's PII and no network dependency is wanted. Weaker extraction accuracy than a frontier model; accept the tradeoff for local dev, not for quality-critical runs. |
-| 3 (secondary fallback) | OpenRouter | Pick from its free pool (DeepSeek R1, Llama 3.3 70B, Qwen3, etc.) | 20 RPM, 50–1,000 req/day (higher after a one-time $10 top-up), no card | Backup when Groq is rate-limited; treat the exact free model list as unstable — it's community-curated and rotates. |
+| 2 (secondary fallback) | OpenRouter | Pick from its free pool (DeepSeek R1, Llama 3.3 70B, Qwen3, etc.) | 20 RPM, 50–1,000 req/day (higher after a one-time $10 top-up), no card | Backup when Groq is rate-limited; treat the exact free model list as unstable — it's community-curated and rotates. |
+
+Cloud-only by choice — no local model (e.g. Ollama). Keeping the POC on hosted providers avoids the ops weight of running/serving a local model just for a two-provider fallback chain; free-tier headroom across Groq + OpenRouter is enough for POC volume.
 
 `LLM_PROVIDER` env var selects the active one (see [ARCHITECTURE.md](./ARCHITECTURE.md#secrets)); the two prompts/schemas above don't change per provider.
 
