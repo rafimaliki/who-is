@@ -89,6 +89,18 @@ const PROFILE_FIXTURE: ProfileResponse = {
       snippet: "Backend engineer. Seattle, WA. Previously Chicago, IL.",
       supports_field: "location_history",
     },
+    {
+      url: "https://acmecorp.example/team/jonathan-smith",
+      title: "Acme Corp — Engineering Team",
+      snippet: "Jonathan works as a Software Engineer on the backend infrastructure team.",
+      supports_field: "occupation",
+    },
+    {
+      url: "https://github.com/jsmith",
+      title: "jsmith (Jonathan Smith) · GitHub",
+      snippet: "Personal site links to LinkedIn and X profiles.",
+      supports_field: "social_profiles",
+    },
   ],
 };
 
