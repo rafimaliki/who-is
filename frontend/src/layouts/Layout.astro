@@ -20,7 +20,7 @@ const { title, description, noindex = false } = Astro.props;
     {noindex && <meta name="robots" content="noindex" />}
     <title>{title}</title>
   </head>
-  <body class="min-h-screen bg-cream text-ink antialiased">
+  <body class="min-h-screen bg-canvas text-ink antialiased">
     <slot />
   </body>
 </html>

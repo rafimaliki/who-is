@@ -1,79 +1,81 @@
 ---
 import Layout from "../layouts/Layout.astro";
+
+const steps = [
+  { n: "01", label: "Search" },
+  { n: "02", label: "Disambiguate" },
+  { n: "03", label: "Cite" },
+];
 ---
 
 <Layout
   title="who is — find the right person, with sources"
   description="Type a name, get a structured profile with every fact traced back to a public source. OSINT-style person search, built to disambiguate before it digs."
 >
-  <header class="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
-    <a href="/" class="font-display text-xl">who is<span class="text-coral">—</span></a>
-    <nav class="flex items-center gap-6 text-sm">
-      <a href="/how-it-works" class="text-ink-soft hover:text-ink">How it works</a>
-      <a
-        href="/app"
-        class="rounded-full bg-ink px-4 py-2 font-medium text-cream transition-colors hover:bg-coral"
-      >
-        Try it
-      </a>
-    </nav>
-  </header>
+  <div class="flex h-dvh flex-col overflow-hidden">
+    <header class="flex w-full shrink-0 items-center justify-between border-b-[1.5px] border-ink px-6 py-4 sm:px-10">
+      <a href="/" class="font-display text-xl font-bold">who is<span class="text-indigo">_</span></a>
+      <nav class="flex items-center gap-4 sm:gap-6 text-sm">
+        <a href="/how-it-works" class="group relative text-ink-soft transition-colors hover:text-ink">
+          How it works
+          <span class="absolute -bottom-0.5 left-0 h-[1.5px] w-0 bg-indigo transition-all duration-200 group-hover:w-full"></span>
+        </a>
+        <a
+          href="/app"
+          class="border-[1.5px] border-ink bg-ink px-4 py-2 font-medium text-canvas shadow-flat transition-shadow hover:shadow-[4px_4px_0_0_var(--color-indigo)] active:shadow-none"
+        >
+          Try it
+        </a>
+      </nav>
+    </header>
 
-  <main class="mx-auto flex w-full max-w-5xl flex-col gap-24 px-6 pb-32 pt-16 sm:pt-24">
-    <section class="flex flex-col items-start gap-6">
+    <main class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-6 px-6 sm:px-10">
       <span
-        class="animate-fade-up rounded-full bg-violet-light px-3 py-1 text-xs font-medium tracking-wide text-violet-dark"
+        class="w-fit animate-fade-up border-[1.5px] border-ink bg-amber-tint px-3 py-1 font-mono text-xs font-medium tracking-wide text-ink"
       >
         every fact, cited
       </span>
-      <h1 class="animate-fade-up max-w-3xl font-display text-5xl leading-[1.05] sm:text-7xl" style="animation-delay: 0.05s">
-        Type a name.<br />
-        Get the <span class="text-coral">right</span> person.
-      </h1>
-      <p class="animate-fade-up max-w-xl text-lg text-ink-soft" style="animation-delay: 0.1s">
-        Not the first ten Google results for "John Smith" — a disambiguated, structured profile,
-        with a source cited for every field. If we can't cite it, we don't show it.
-      </p>
-      <a
-        href="/app"
-        class="animate-fade-up mt-2 rounded-full bg-coral px-6 py-3 font-medium text-paper shadow-card transition-transform hover:scale-[1.03]"
-        style="animation-delay: 0.15s"
+
+      <h1
+        class="animate-fade-up text-[clamp(2.25rem,7vw,4.75rem)] leading-[0.98] font-bold font-display text-ink"
+        style="animation-delay: 0.05s"
       >
-        Start a search →
-      </a>
-    </section>
+        Type a name.<br />
+        Get the <span class="text-indigo">right</span> person.
+      </h1>
 
-    <section class="grid gap-6 sm:grid-cols-3">
-      {
-        [
-          {
-            step: "01",
-            title: "Broad search",
-            body: "We search the public web — and public, search-indexed social profiles — for the name and filters you gave.",
-          },
-          {
-            step: "02",
-            title: "Disambiguate",
-            body: "Results get clustered into distinct people. \"John Smith\" the engineer isn't \"John Smith\" the lawyer — you pick which one you mean.",
-          },
-          {
-            step: "03",
-            title: "Cited profile",
-            body: "We build a structured profile from public sources only. Every populated field links back to where it came from.",
-          },
-        ].map((item) => (
-          <div class="rounded-2xl border border-border bg-paper p-6 shadow-card">
-            <span class="font-display text-3xl text-coral">{item.step}</span>
-            <h3 class="mt-3 text-lg font-semibold">{item.title}</h3>
-            <p class="mt-2 text-sm text-ink-soft">{item.body}</p>
-          </div>
-        ))
-      }
-    </section>
-  </main>
+      <p class="animate-fade-up max-w-xl text-base text-ink-soft sm:text-lg" style="animation-delay: 0.1s">
+        Not the first ten results for "John Smith" — a disambiguated, structured profile, with a
+        source cited for every field. If we can't cite it, we don't show it.
+      </p>
 
-  <footer class="mx-auto w-full max-w-5xl px-6 pb-10 text-sm text-ink-faint">
-    Public sources only. Profile pages are never indexed. See{" "}
-    <a href="/how-it-works" class="underline hover:text-ink">how it works</a>.
-  </footer>
+      <div class="animate-fade-up flex flex-wrap items-center gap-4" style="animation-delay: 0.15s">
+        <a
+          href="/app"
+          class="border-[1.5px] border-ink bg-indigo px-6 py-3 font-medium text-paper shadow-flat transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_0_var(--color-ink)] active:translate-x-0 active:translate-y-0 active:shadow-none"
+        >
+          Start a search →
+        </a>
+
+        <ul class="flex items-center gap-3 font-mono text-xs text-ink-soft">
+          {
+            steps.map((step, i) => (
+              <>
+                <li class="flex items-center gap-1.5">
+                  <span class="text-indigo">{step.n}</span>
+                  {step.label}
+                </li>
+                {i < steps.length - 1 && <li aria-hidden="true" class="text-ink-faint">/</li>}
+              </>
+            ))
+          }
+        </ul>
+      </div>
+    </main>
+
+    <footer class="shrink-0 border-t-[1.5px] border-ink px-6 py-3 font-mono text-xs text-ink-faint sm:px-10">
+      Public sources only. Profile pages are never indexed. See{" "}
+      <a href="/how-it-works" class="text-ink underline hover:text-indigo">how it works</a>.
+    </footer>
+  </div>
 </Layout>

@@ -15,7 +15,7 @@ export function ProfileField({ label, sources, children }: ProfileFieldProps) {
   const hasSources = sources.length > 0;
 
   return (
-    <div className="rounded-xl border border-border bg-paper p-4 shadow-card">
+    <div className="border-[1.5px] border-border bg-paper p-4 shadow-flat-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-xs font-semibold tracking-wide text-ink-faint uppercase">{label}</h3>
@@ -26,7 +26,7 @@ export function ProfileField({ label, sources, children }: ProfileFieldProps) {
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-light px-2.5 py-1 text-xs font-medium text-violet-dark transition-colors hover:bg-violet/20"
+            className="flex shrink-0 items-center gap-1 rounded-md border-[1.5px] border-ink bg-indigo-tint px-2.5 py-1 font-mono text-xs font-medium text-indigo-dark transition-colors hover:bg-indigo hover:text-paper"
           >
             {sources.length} source{sources.length > 1 ? "s" : ""}
             <ChevronDown
@@ -45,14 +45,14 @@ export function ProfileField({ label, sources, children }: ProfileFieldProps) {
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <ul className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+            <ul className="mt-3 flex flex-col gap-2 border-t-[1.5px] border-border pt-3">
               {sources.map((s, i) => (
-                <li key={`${s.url}-${i}`} className="rounded-lg bg-cream px-3 py-2 text-xs">
+                <li key={`${s.url}-${i}`} className="border border-border bg-canvas px-3 py-2 text-xs">
                   <a
                     href={s.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium text-violet-dark hover:underline"
+                    className="font-medium text-indigo-dark hover:underline"
                   >
                     {s.title}
                   </a>
