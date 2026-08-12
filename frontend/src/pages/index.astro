@@ -1,0 +1,79 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="who is — find the right person, with sources"
+  description="Type a name, get a structured profile with every fact traced back to a public source. OSINT-style person search, built to disambiguate before it digs."
+>
+  <header class="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
+    <a href="/" class="font-display text-xl">who is<span class="text-coral">—</span></a>
+    <nav class="flex items-center gap-6 text-sm">
+      <a href="/how-it-works" class="text-ink-soft hover:text-ink">How it works</a>
+      <a
+        href="/app"
+        class="rounded-full bg-ink px-4 py-2 font-medium text-cream transition-colors hover:bg-coral"
+      >
+        Try it
+      </a>
+    </nav>
+  </header>
+
+  <main class="mx-auto flex w-full max-w-5xl flex-col gap-24 px-6 pb-32 pt-16 sm:pt-24">
+    <section class="flex flex-col items-start gap-6">
+      <span
+        class="animate-fade-up rounded-full bg-violet-light px-3 py-1 text-xs font-medium tracking-wide text-violet-dark"
+      >
+        every fact, cited
+      </span>
+      <h1 class="animate-fade-up max-w-3xl font-display text-5xl leading-[1.05] sm:text-7xl" style="animation-delay: 0.05s">
+        Type a name.<br />
+        Get the <span class="text-coral">right</span> person.
+      </h1>
+      <p class="animate-fade-up max-w-xl text-lg text-ink-soft" style="animation-delay: 0.1s">
+        Not the first ten Google results for "John Smith" — a disambiguated, structured profile,
+        with a source cited for every field. If we can't cite it, we don't show it.
+      </p>
+      <a
+        href="/app"
+        class="animate-fade-up mt-2 rounded-full bg-coral px-6 py-3 font-medium text-paper shadow-card transition-transform hover:scale-[1.03]"
+        style="animation-delay: 0.15s"
+      >
+        Start a search →
+      </a>
+    </section>
+
+    <section class="grid gap-6 sm:grid-cols-3">
+      {
+        [
+          {
+            step: "01",
+            title: "Broad search",
+            body: "We search the public web — and public, search-indexed social profiles — for the name and filters you gave.",
+          },
+          {
+            step: "02",
+            title: "Disambiguate",
+            body: "Results get clustered into distinct people. \"John Smith\" the engineer isn't \"John Smith\" the lawyer — you pick which one you mean.",
+          },
+          {
+            step: "03",
+            title: "Cited profile",
+            body: "We build a structured profile from public sources only. Every populated field links back to where it came from.",
+          },
+        ].map((item) => (
+          <div class="rounded-2xl border border-border bg-paper p-6 shadow-card">
+            <span class="font-display text-3xl text-coral">{item.step}</span>
+            <h3 class="mt-3 text-lg font-semibold">{item.title}</h3>
+            <p class="mt-2 text-sm text-ink-soft">{item.body}</p>
+          </div>
+        ))
+      }
+    </section>
+  </main>
+
+  <footer class="mx-auto w-full max-w-5xl px-6 pb-10 text-sm text-ink-faint">
+    Public sources only. Profile pages are never indexed. See{" "}
+    <a href="/how-it-works" class="underline hover:text-ink">how it works</a>.
+  </footer>
+</Layout>

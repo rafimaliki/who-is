@@ -1,0 +1,58 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const steps = [
+  {
+    title: "1. Broad search",
+    body: "Your name and filters (country, age range, occupation, aliases) go out as a public web search — including targeted lookups on public, search-indexed social profiles (Instagram, Facebook, X, LinkedIn, TikTok, YouTube). Nothing behind a login wall is ever touched.",
+  },
+  {
+    title: "2. Disambiguation",
+    body: "Results get clustered into distinct people, not left as a flat list of ten blue links. If there's more than one plausible match, you pick which one you meant before anything goes further.",
+  },
+  {
+    title: "3. Deep dive, scoped",
+    body: "Once a candidate is chosen, the search narrows to just that person — more specific queries, and a direct fetch of their public pages for detail the search snippets didn't capture.",
+  },
+  {
+    title: "4. Cited extraction",
+    body: "A structured profile is built strictly from what was found. Every populated field carries at least one source. If a fact can't be traced to a public page, the field stays empty — never guessed.",
+  },
+];
+---
+
+<Layout
+  title="How it works — who is"
+  description="How who is disambiguates a name, searches public sources, and builds a cited profile."
+>
+  <header class="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-6">
+    <a href="/" class="font-display text-xl">who is<span class="text-coral">—</span></a>
+    <a href="/app" class="rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream hover:bg-coral">
+      Try it
+    </a>
+  </header>
+
+  <main class="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 pb-32 pt-10">
+    <h1 class="font-display text-4xl sm:text-5xl">How it works</h1>
+
+    <ol class="flex flex-col gap-6">
+      {
+        steps.map((step) => (
+          <li class="rounded-2xl border border-border bg-paper p-6 shadow-card">
+            <h2 class="font-display text-xl text-violet-dark">{step.title}</h2>
+            <p class="mt-2 text-ink-soft">{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <section class="rounded-2xl bg-mint-light p-6">
+      <h2 class="font-semibold text-ink">Privacy, not an afterthought</h2>
+      <p class="mt-2 text-sm text-ink-soft">
+        Profile pages are marked <code>noindex</code> — a generated profile never gets crawled
+        and cached by a search engine itself. Only public sources are used; nothing authenticated
+        or login-walled is ever scraped.
+      </p>
+    </section>
+  </main>
+</Layout>
