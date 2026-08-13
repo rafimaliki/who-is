@@ -46,7 +46,11 @@ export function SearchForm({ onSubmit, isSubmitting, thinkingMessages }: SearchF
   return (
     <motion.form
       onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 10 }}
+      // initial={false}, not an opacity-0 -> 1 mount transition: this is server-rendered and the
+      // very first thing on /app, so it must be visible immediately rather than waiting on JS to
+      // hydrate before an entrance animation reveals it (was showing as a blank gap on slower
+      // connections — e.g. behind a tunnel — until hydration caught up).
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col gap-6 border-[1.5px] border-ink bg-paper p-6 shadow-flat sm:p-8"

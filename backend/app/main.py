@@ -9,10 +9,13 @@ from .routes import router
 
 app = FastAPI(title="who-is API")
 
-# Local dev only — the Astro dev server's origin. Tighten before any real deployment.
+# Local dev only — the Astro dev server's origin, plus Cloudflare quick tunnels (random
+# *.trycloudflare.com subdomain each run, so a regex instead of a fixed origin) for sharing a
+# local run over a public URL. Tighten before any real deployment.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4321", "http://127.0.0.1:4321"],
+    allow_origin_regex=r"https://.*\.trycloudflare\.com",
     allow_methods=["*"],
     allow_headers=["*"],
 )
