@@ -6,3 +6,6 @@
 node_modules/
 dist/
 .astro/
+
+# Root-level secrets for docker compose (GEMINI_API_KEY etc.) — see .env.example
+.env
