@@ -4,7 +4,7 @@ OSINT-style person profiler. Name in, structured profile out. POC stage — docs
 
 ## Docs
 
-Read before working on this repo: [docs/README.md](./docs/README.md) (index) → [docs/CONCEPT.md](./docs/CONCEPT.md) → [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) → rest as needed (DATA_MODEL, API_CONTRACT, LLM_PIPELINE, SCRAPING_SOURCES, FRONTEND_UX).
+Read before working on this repo: [.docs/README.md](./.docs/README.md) (index) → [.docs/CONCEPT.md](./.docs/CONCEPT.md) → [.docs/ARCHITECTURE.md](./.docs/ARCHITECTURE.md) → rest as needed (DATA_MODEL, API_CONTRACT, LLM_PIPELINE, SCRAPING_SOURCES, FRONTEND_UX).
 
 ## Required skills — every session
 
@@ -20,7 +20,7 @@ Invoke both at session start, no exceptions:
 - `feat` (`.claude/skills/feat/SKILL.md`) — `/feat` end-to-end pipeline: plan → design → review →
   implement → PR, invoking the `git` skill for all git ops.
 
-## Non-negotiables (from docs/CONCEPT.md)
+## Non-negotiables (from .docs/CONCEPT.md)
 
 - Profile pages are `noindex`, always.
 - Every profile field carries a source — no field renders without one.

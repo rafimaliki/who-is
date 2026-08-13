@@ -21,7 +21,7 @@ raw `git`/`gh` commands directly from this skill.
 
 ## Pipeline
 
-1. **Plan** — read `docs/` (per this repo's CLAUDE.md) and scope what's being built. Ask the user
+1. **Plan** — read `.docs/` (per this repo's CLAUDE.md) and scope what's being built. Ask the user
    only what's genuinely ambiguous — don't ask about things a sensible default already covers.
 2. **Design** — propose the approach: files touched, data/API shape if relevant, key tradeoffs.
    Give the user a short brief (what's being built, key design choice, files touched — no essay)

@@ -1,5 +1,5 @@
 /** Rotating status lines the UI cycles through while a request is in flight. Purely cosmetic —
- * the backend doesn't stream real progress, so these just narrate the pipeline in docs/LLM_PIPELINE.md. */
+ * the backend doesn't stream real progress, so these just narrate the pipeline in .docs/LLM_PIPELINE.md. */
 export const THINKING_MESSAGES = {
   search: [
     "Searching public sources…",

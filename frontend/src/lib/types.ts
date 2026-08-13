@@ -1,4 +1,4 @@
-// Shapes mirror docs/API_CONTRACT.md and docs/DATA_MODEL.md — keep in sync when the backend lands.
+// Shapes mirror .docs/API_CONTRACT.md and .docs/DATA_MODEL.md — keep in sync when the backend lands.
 
 export interface SearchRequest {
   name: string;

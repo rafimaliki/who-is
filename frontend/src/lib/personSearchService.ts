@@ -20,7 +20,7 @@ async function parseErrorBody(res: Response): Promise<ApiError> {
   return { error: "upstream_error", message: `Request failed (${res.status})` };
 }
 
-/** Talks to the FastAPI backend over HTTP, per docs/API_CONTRACT.md. */
+/** Talks to the FastAPI backend over HTTP, per .docs/API_CONTRACT.md. */
 export class HttpPersonSearchService implements PersonSearchService {
   constructor(private readonly baseUrl: string) {}
 
