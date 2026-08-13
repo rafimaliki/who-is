@@ -46,9 +46,11 @@ export class HttpPersonSearchService implements PersonSearchService {
         body: JSON.stringify(body),
       });
     } catch {
+      // Developer-facing detail only — App.tsx's toSafeMessage() logs this and shows the user
+      // curated copy instead, never this string directly.
       const unreachable: ApiError = {
         error: "upstream_error",
-        message: "Could not reach the server. Is the backend running?",
+        message: `Network error reaching ${this.baseUrl}${path}`,
       };
       throw unreachable;
     }

@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { personSearchService } from "../lib/personSearchService";
 import { THINKING_MESSAGES } from "../lib/thinkingMessages";
-import type { ApiError, Candidate, ProfileResponse, SearchRequest } from "../lib/types";
+import { toSafeMessage } from "../lib/errorMessages";
+import type { Candidate, ProfileResponse, SearchRequest } from "../lib/types";
 import { SearchForm } from "./SearchForm";
 import { CandidatePicker } from "./CandidatePicker";
 import { ProfileView } from "./ProfileView";
@@ -22,10 +23,6 @@ type FlowState =
 // silently with no picker click to hang a second box on — the profile build too. This just swaps
 // which thinking-message list the (still-visible) search button cycles through.
 type SearchPhase = "search" | "profile";
-
-function errorMessage(err: unknown): string {
-  return err && typeof err === "object" && "message" in err ? String((err as ApiError).message) : "Something went wrong.";
-}
 
 export default function App() {
   const [state, setState] = useState<FlowState>({ step: "form" });
@@ -50,7 +47,7 @@ export default function App() {
       }
       setState({ step: "picker", searchId: res.search_id, candidates: res.candidates });
     } catch (err) {
-      setState({ step: "error", message: errorMessage(err) });
+      setState({ step: "error", message: toSafeMessage(err) });
     }
   }, []);
 
@@ -63,7 +60,7 @@ export default function App() {
         const profile = await personSearchService.select(searchId, candidateId);
         setState({ step: "profile", profile });
       } catch (err) {
-        setState({ step: "error", message: errorMessage(err) });
+        setState({ step: "error", message: toSafeMessage(err) });
       }
     },
     [],
