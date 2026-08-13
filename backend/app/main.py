@@ -5,7 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .routes import router
+from .profile.route import router as profile_router
+from .search.route import router as search_router
 
 app = FastAPI(title="who-is API")
 
@@ -20,12 +21,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+app.include_router(search_router)
+app.include_router(profile_router)
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
-    """Routes/stub raise HTTPException with `detail` already shaped like docs/API_CONTRACT.md's
+    """Domain services raise HTTPException with `detail` already shaped like .docs/API_CONTRACT.md's
     `{error, message}` — return it as the body directly instead of FastAPI's default
     `{"detail": ...}` wrapping."""
     if isinstance(exc.detail, dict) and "error" in exc.detail:

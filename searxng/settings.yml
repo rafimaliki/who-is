@@ -1,0 +1,16 @@
+# Minimal override on top of SearXNG's built-in defaults (use_default_settings inherits
+# everything else — engines, UI, etc.). Only what the backend actually needs to talk to this
+# instance lives here.
+use_default_settings: true
+
+server:
+  # Local-only instance behind the backend, not a public search engine — a fixed key is fine;
+  # rotate it if this ever stops being purely local.
+  secret_key: "3d3dd0e5b610552dda816c3474b505fbdaa990649c127b3056c74e21b79d5b7e"
+  limiter: false
+
+search:
+  # JSON is off by default (SearXNG's public-instance-abuse guard) — the backend needs it.
+  formats:
+    - html
+    - json

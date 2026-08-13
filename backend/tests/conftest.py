@@ -1,12 +1,13 @@
-"""Collapse the stub's demo-pacing delays for tests — those exist for a human watching the UI,
-not for a test suite."""
+"""The in-memory store (app/shared/store.py) is a module-level singleton shared by the search and
+profile domains — reset it between tests so one test's searches/profiles can't leak into
+another's."""
 
 import pytest
 
-from app import stub
+from app.shared.store import store
 
 
 @pytest.fixture(autouse=True)
-def _no_stub_delay(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(stub, "SEARCH_DELAY_S", 0)
-    monkeypatch.setattr(stub, "SELECT_DELAY_S", 0)
+def _reset_store() -> None:
+    store.searches.clear()
+    store.profiles.clear()
