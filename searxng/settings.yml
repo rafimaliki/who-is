@@ -14,3 +14,11 @@ search:
   formats:
     - html
     - json
+
+# Per-engine overrides on top of the inherited default engine list.
+engines:
+  - name: duckduckgo
+    disabled: true
+    # DNS for html.duckduckgo.com resolves to an ISP block page on at least one network this ran
+    # on (confirmed via `nslookup` inside the searxng container) - times out every search rather
+    # than ever returning a result there. Re-enable if that's not true on your network.

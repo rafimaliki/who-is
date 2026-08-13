@@ -16,6 +16,9 @@ class StoredCandidate:
     candidate: "Candidate"
     label: str
     summary: str
+    # URLs that grounded this cluster during search — a fallback data source for the deep dive if
+    # a fresh scoped search comes up completely empty (e.g. every SearXNG engine rate-limited).
+    source_urls: list[str]
 
 
 @dataclass

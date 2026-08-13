@@ -37,6 +37,11 @@ def _build_query(name: str, filters: dict[str, object]) -> str:
     return " ".join(parts)
 
 
+def _candidate_name(label: str) -> str:
+    """`label` is "Name, occupation, city" — just the name, for a fallback query."""
+    return label.split(",")[0].strip()
+
+
 async def _upstream(awaitable: Awaitable[T]) -> T:
     """Runs a SearXNG/Gemini call, translating any failure into the documented error shape
     instead of letting a raw exception (with library/stack-trace detail) escape to the client."""
@@ -76,7 +81,7 @@ async def run_search(name: str, filters: dict[str, object]) -> SearchResponse:
             id=f"c_{uuid.uuid4().hex[:8]}", label=c.label, summary=c.summary, photo_url=c.photo_url, confidence=c.confidence
         )
         api_candidates.append(api_candidate)
-        stored.append(StoredCandidate(candidate=api_candidate, label=c.label, summary=c.summary))
+        stored.append(StoredCandidate(candidate=api_candidate, label=c.label, summary=c.summary, source_urls=c.source_urls))
 
     search_id = f"s_{uuid.uuid4().hex[:8]}"
     store.searches[search_id] = stored
@@ -95,8 +100,16 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
             404, detail={"error": "not_found", "message": "candidate_id does not exist for this search"}
         )
 
-    scoped_query = f"{match.label} {match.summary}"
-    results = await _upstream(searxng.search(scoped_query, count=MAX_DEEP_DIVE_PAGES))
+    # match.label already carries the disambiguators (name, occupation, city) SCRAPING_SOURCES.md
+    # calls for - match.summary is a full sentence, not query material; appending it just made
+    # the query long and redundant enough that SearXNG's engines sometimes matched nothing at all.
+    results = await _upstream(searxng.search(match.label, count=MAX_DEEP_DIVE_PAGES))
+    if not results:
+        # Rare (a less-documented person), but the disambiguated query can still come up empty -
+        # retry with just the name before giving up on the whole profile.
+        fallback_query = _candidate_name(match.label)
+        if fallback_query and fallback_query != match.label:
+            results = await _upstream(searxng.search(fallback_query, count=MAX_DEEP_DIVE_PAGES))
 
     pages: list[tuple[str, str, str]] = []
     for r in results:
@@ -104,6 +117,16 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
         # Direct fetch is best-effort (robots.txt, bot-blocking, timeouts all skip silently per
         # .docs/SCRAPING_SOURCES.md) - fall back to the search snippet rather than losing the page.
         pages.append((r.url, r.title, text or r.content))
+
+    if not pages:
+        # Both scoped queries came up empty — can happen even for an easily-searchable person if
+        # every SearXNG engine is currently rate-limited/blocked, not just for an obscure one.
+        # Fall back to the URLs that already grounded this candidate during clustering rather than
+        # failing the whole profile when we already have public pages for them.
+        for url in match.source_urls[:MAX_DEEP_DIVE_PAGES]:
+            text = await scraping.fetch_text(url)
+            if text:
+                pages.append((url, url, text))
 
     if not pages:
         raise HTTPException(

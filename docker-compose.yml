@@ -1,4 +1,11 @@
 services:
+  # Result cache for searxng — repeat/near-repeat queries (normal during dev) get served from
+  # here instead of re-hitting every upstream engine, which is what burns through their
+  # per-network rate limits fastest. Ephemeral (no volume) - just a cache, fine to lose on restart.
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --save "" --appendonly no
+
   searxng:
     image: searxng/searxng:latest
     ports:
@@ -7,6 +14,9 @@ services:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     environment:
       - SEARXNG_BASE_URL=http://localhost:8080/
+      - SEARXNG_REDIS_URL=redis://valkey:6379/0
+    depends_on:
+      - valkey
 
   backend:
     build: ./backend
