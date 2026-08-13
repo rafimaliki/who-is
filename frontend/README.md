@@ -1,7 +1,7 @@
 # who-is — frontend
 
 Astro (marketing shell, SSG) + one React island (`/app`) for the interactive search flow. See
-[../docs](../docs) for the full product design; [FRONTEND_UX.md](../docs/FRONTEND_UX.md) is the
+[../.docs](../.docs) for the full product design; [FRONTEND_UX.md](../.docs/FRONTEND_UX.md) is the
 page/state reference for this directory specifically.
 
 Talks to the [`../backend`](../backend) FastAPI service over HTTP via `personSearchService`
@@ -25,7 +25,7 @@ README for its dev-only test triggers.
   `ProfileView` are the three screens
 - `src/lib/personSearchService.ts` — `PersonSearchService` interface + `HttpPersonSearchService`,
   the app's one seam for "however we find people". `src/lib/types.ts` has the shared shapes,
-  mirrored from `../docs/API_CONTRACT.md` / `DATA_MODEL.md`.
+  mirrored from `../.docs/API_CONTRACT.md` / `DATA_MODEL.md`.
 - `src/lib/thinkingMessages.ts` — the rotating "thinking" lines shown while a request is in
   flight; purely cosmetic, the backend doesn't stream real progress.
 - `src/styles/global.css` — Tailwind v4 + design tokens (color, font) via `@theme`
