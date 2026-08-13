@@ -8,6 +8,11 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   integrations: [react()],
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // Lets the dev server respond behind a Cloudflare quick tunnel (*.trycloudflare.com), which
+    // Vite's Host-header check otherwise blocks with 403 — dev convenience only, not used in prod.
+    server: {
+      allowedHosts: ['.trycloudflare.com']
+    }
   }
 });
