@@ -156,6 +156,120 @@ async def test_select_then_get_profile_round_trip(monkeypatch: pytest.MonkeyPatc
     assert fetched == profile
 
 
+async def test_select_falls_back_to_bare_name_when_the_disambiguated_query_finds_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def one_result(*_a: object, **_k: object) -> list[SearxResult]:
+        return [_result("https://a.example")]
+
+    async def fake_cluster(*_a: object, **_k: object) -> ClusterOutput:
+        return ClusterOutput(
+            candidates=[
+                ClusterCandidate(label="Jane Doe, kite surfing instructor, Nome", summary="...", confidence=0.9, source_urls=["https://a.example"])
+            ]
+        )
+
+    monkeypatch.setattr(searxng, "search", one_result)
+    monkeypatch.setattr(llm, "cluster_candidates", fake_cluster)
+
+    search_res = await search_service.run_search("Jane Doe", {})
+    candidate_id = search_res.candidates[0].id
+
+    queries_seen: list[str] = []
+
+    async def query_sensitive_search(query: str, **_k: object) -> list[SearxResult]:
+        queries_seen.append(query)
+        # The full disambiguated label finds nothing; only the bare name does.
+        if query == "Jane Doe, kite surfing instructor, Nome":
+            return []
+        return [_result("https://b.example")]
+
+    async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
+        return ExtractOutput(
+            fields=ExtractFields(
+                full_name="Jane Doe",
+                aliases=[],
+                location_current=None,
+                location_history=[],
+                occupation=None,
+                employer=None,
+                education=[],
+                social_profiles=[],
+                photos=[],
+                summary="Jane Doe.",
+            ),
+            sources=[],
+        )
+
+    async def no_fetch(_url: str) -> str | None:
+        return None
+
+    monkeypatch.setattr(searxng, "search", query_sensitive_search)
+    monkeypatch.setattr(scraping, "fetch_text", no_fetch)
+    monkeypatch.setattr(llm, "extract_profile", fake_extract)
+
+    profile = await search_service.run_select(search_res.search_id, candidate_id)
+
+    assert profile.fields.full_name == "Jane Doe"
+    assert queries_seen == ["Jane Doe, kite surfing instructor, Nome", "Jane Doe"]
+
+
+async def test_select_falls_back_to_clustering_source_urls_when_every_scoped_query_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Covers the real incident this guards against: every SearXNG engine rate-limited/blocked at
+    once (confirmed live — brave/google cse suspended, startpage CAPTCHA'd, duckduckgo timing
+    out), so even an easily-searchable person's scoped deep-dive query comes back with zero
+    results. The candidate's own clustering source_urls are the fallback."""
+
+    async def one_result(*_a: object, **_k: object) -> list[SearxResult]:
+        return [_result("https://a.example")]
+
+    async def fake_cluster(*_a: object, **_k: object) -> ClusterOutput:
+        return ClusterOutput(
+            candidates=[
+                ClusterCandidate(
+                    label="Jane Doe, engineer", summary="...", confidence=0.9,
+                    source_urls=["https://a.example", "https://c.example"],
+                )
+            ]
+        )
+
+    monkeypatch.setattr(searxng, "search", one_result)
+    monkeypatch.setattr(llm, "cluster_candidates", fake_cluster)
+
+    search_res = await search_service.run_search("Jane Doe", {})
+    candidate_id = search_res.candidates[0].id
+
+    async def every_engine_down(*_a: object, **_k: object) -> list[SearxResult]:
+        return []
+
+    fetched_urls: list[str] = []
+
+    async def fetch_only_source_urls(url: str) -> str | None:
+        fetched_urls.append(url)
+        return "Jane Doe is an engineer." if url == "https://c.example" else None
+
+    async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
+        return ExtractOutput(
+            fields=ExtractFields(
+                full_name="Jane Doe", aliases=[], location_current=None, location_history=[],
+                occupation=None, employer=None, education=[], social_profiles=[], photos=[],
+                summary="Jane Doe.",
+            ),
+            sources=[],
+        )
+
+    monkeypatch.setattr(searxng, "search", every_engine_down)
+    monkeypatch.setattr(scraping, "fetch_text", fetch_only_source_urls)
+    monkeypatch.setattr(llm, "extract_profile", fake_extract)
+
+    profile = await search_service.run_select(search_res.search_id, candidate_id)
+
+    assert profile.fields.full_name == "Jane Doe"
+    assert fetched_urls == ["https://a.example", "https://c.example"]  # both source_urls tried
+
+
 async def test_select_with_unknown_search_id_is_not_found() -> None:
     with pytest.raises(HTTPException) as exc_info:
         await search_service.run_select("does-not-exist", "c_1")
