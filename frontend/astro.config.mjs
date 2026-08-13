@@ -7,6 +7,9 @@ import tailwindcss from '@tailwindcss/vite';
 // https://astro.build/config
 export default defineConfig({
   integrations: [react()],
+  devToolbar: {
+    enabled: false
+  },
   vite: {
     plugins: [tailwindcss()],
     // Lets the dev server respond behind a Cloudflare quick tunnel (*.trycloudflare.com), which
