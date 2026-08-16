@@ -4,7 +4,7 @@ OSINT-style person profiler. Name in, structured profile out. POC stage — docs
 
 ## Docs
 
-Read before working on this repo: [.docs/README.md](./.docs/README.md) (index) → [.docs/CONCEPT.md](./.docs/CONCEPT.md) → [.docs/ARCHITECTURE.md](./.docs/ARCHITECTURE.md) → rest as needed (DATA_MODEL, API_CONTRACT, LLM_PIPELINE, SCRAPING_SOURCES, FRONTEND_UX).
+Read before working on this repo: [.docs/README.md](./.docs/README.md) (index) → [.docs/CONCEPT.md](./.docs/CONCEPT.md) → [.docs/ARCHITECTURE.md](./.docs/ARCHITECTURE.md) → rest as needed (DATA_MODEL, API_CONTRACT, LLM_PIPELINE, FRONTEND_UX).
 
 ## Required skills — every session
 

@@ -1,17 +1,19 @@
 """Unit tests for app/search/service.py's orchestration — query building, the store round trip,
-and error mapping — with SearXNG/Gemini/page-fetch mocked out. Those are real network calls to a
-self-hosted instance and a paid API; a test suite shouldn't depend on either being reachable or
-cost money to run. Live end-to-end behavior is verified manually against a real SearXNG + Gemini
+and error mapping — with SearXNG/OpenRouter/page-fetch mocked out. Those are real network calls to
+a self-hosted instance and a paid API; a test suite shouldn't depend on either being reachable or
+cost money to run. Live end-to-end behavior is verified manually against a real SearXNG + OpenRouter
 key (see backend/README.md)."""
 
 import pytest
 from fastapi import HTTPException
 
+from app.config import Settings
 from app.llm import service as llm
 from app.llm.types import ClusterCandidate, ClusterOutput, ExtractFields, ExtractOutput, ExtractSource
 from app.profile import service as profile_service
 from app.scraping import service as scraping
 from app.search import service as search_service
+from app.serpapi import service as serpapi
 from app.searxng import service as searxng
 from app.searxng.types import SearxResult
 
@@ -94,7 +96,7 @@ async def test_searxng_failure_maps_to_upstream_error(monkeypatch: pytest.Monkey
     assert exc_info.value.detail["error"] == "upstream_error"
 
 
-async def test_gemini_rate_limit_maps_to_429(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_llm_rate_limit_maps_to_429(monkeypatch: pytest.MonkeyPatch) -> None:
     async def some_results(*_a: object, **_k: object) -> list[SearxResult]:
         return [_result("https://a.example")]
 
@@ -268,6 +270,112 @@ async def test_select_falls_back_to_clustering_source_urls_when_every_scoped_que
 
     assert profile.fields.full_name == "Jane Doe"
     assert fetched_urls == ["https://a.example", "https://c.example"]  # both source_urls tried
+
+
+async def test_search_falls_back_to_serpapi_when_searxng_is_empty_and_key_is_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SerpAPI is opt-in (SERPAPI_KEY) and only tried once SearXNG itself comes back empty - covers
+    the case where a self-hosted instance's engines are rate-limited/blocked."""
+
+    async def empty_searxng(*_a: object, **_k: object) -> list[SearxResult]:
+        return []
+
+    async def fake_serpapi(*_a: object, **_k: object) -> list[SearxResult]:
+        return [_result("https://serpapi.example")]
+
+    async def fake_cluster(*_a: object, **_k: object) -> ClusterOutput:
+        return ClusterOutput(
+            candidates=[ClusterCandidate(label="Jane Doe", summary="...", confidence=0.8, source_urls=["https://serpapi.example"])]
+        )
+
+    monkeypatch.setattr(searxng, "search", empty_searxng)
+    monkeypatch.setattr(serpapi, "search", fake_serpapi)
+    monkeypatch.setattr(llm, "cluster_candidates", fake_cluster)
+    monkeypatch.setattr(
+        search_service,
+        "get_settings",
+        lambda: Settings(searxng_url="", openrouter_api_key="", openrouter_model="", serpapi_key="test-key"),
+    )
+
+    res = await search_service.run_search("Jane Doe", {})
+
+    assert len(res.candidates) == 1
+
+
+async def test_search_skips_serpapi_when_no_key_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def empty_searxng(*_a: object, **_k: object) -> list[SearxResult]:
+        return []
+
+    called = False
+
+    async def fake_serpapi(*_a: object, **_k: object) -> list[SearxResult]:
+        nonlocal called
+        called = True
+        return [_result("https://serpapi.example")]
+
+    monkeypatch.setattr(searxng, "search", empty_searxng)
+    monkeypatch.setattr(serpapi, "search", fake_serpapi)
+    monkeypatch.setattr(
+        search_service,
+        "get_settings",
+        lambda: Settings(searxng_url="", openrouter_api_key="", openrouter_model="", serpapi_key=""),
+    )
+
+    res = await search_service.run_search("Jane Doe", {})
+
+    assert called is False
+    assert res.candidates == []
+
+
+async def test_select_rejects_a_profile_whose_extracted_name_does_not_match_the_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Covers the deep dive latching onto a same-name-different-person page (a common surname, or
+    a stale source_urls fallback) - the extracted identity must still tie back to who was picked."""
+
+    async def one_result(*_a: object, **_k: object) -> list[SearxResult]:
+        return [_result("https://a.example")]
+
+    async def fake_cluster(*_a: object, **_k: object) -> ClusterOutput:
+        return ClusterOutput(
+            candidates=[ClusterCandidate(label="Jane Doe, engineer", summary="...", confidence=0.9, source_urls=["https://a.example"])]
+        )
+
+    monkeypatch.setattr(searxng, "search", one_result)
+    monkeypatch.setattr(llm, "cluster_candidates", fake_cluster)
+
+    search_res = await search_service.run_search("Jane Doe", {})
+    candidate_id = search_res.candidates[0].id
+
+    async def no_fetch(_url: str) -> str | None:
+        return None
+
+    async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
+        return ExtractOutput(
+            fields=ExtractFields(
+                full_name="John Smith",  # a different person entirely
+                aliases=[],
+                location_current=None,
+                location_history=[],
+                occupation=None,
+                employer=None,
+                education=[],
+                social_profiles=[],
+                photos=[],
+                summary="John Smith.",
+            ),
+            sources=[],
+        )
+
+    monkeypatch.setattr(scraping, "fetch_text", no_fetch)
+    monkeypatch.setattr(llm, "extract_profile", fake_extract)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await search_service.run_select(search_res.search_id, candidate_id)
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail["error"] == "upstream_error"
 
 
 async def test_select_with_unknown_search_id_is_not_found() -> None:

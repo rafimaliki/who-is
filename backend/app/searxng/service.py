@@ -1,5 +1,5 @@
-"""Thin client for a self-hosted SearXNG instance's JSON search API — see
-.docs/SCRAPING_SOURCES.md for why SearXNG over a paid search API."""
+"""Thin client for a self-hosted SearXNG instance's JSON search API — free, no key, no query cap,
+which is why it's the primary provider over a paid search API."""
 
 import httpx
 

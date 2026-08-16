@@ -7,5 +7,8 @@ node_modules/
 dist/
 .astro/
 
-# Root-level secrets for docker compose (GEMINI_API_KEY etc.) — see .env.example
+# Root-level secrets for docker compose (OPENROUTER_API_KEY etc.) — see .env.example
 .env
+
+# Git-for-Windows crash dumps — noise, never project content
+*.stackdump

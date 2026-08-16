@@ -5,7 +5,7 @@ Two LLM calls, both structured output via JSON schema / tool-use — never free-
 ## Call 1 — Clustering
 
 **When:** right after broad search returns.
-**Input:** the user's query params + the raw list of search results (title, snippet, url) from the search provider stack ([SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md)) — including any social-platform hits from the `site:` queries.
+**Input:** the user's query params + the raw list of search results (title, snippet, url) from the search provider stack — including any social-platform hits from the `site:` queries.
 **Task:** group results into N distinct people, not N search results. Two results about "John Smith the Seattle engineer" belong in one cluster even if worded differently; one result about "John Smith the Chicago lawyer" is a separate cluster.
 
 **Output schema**
@@ -62,16 +62,9 @@ Two LLM calls, both structured output via JSON schema / tool-use — never free-
 
 ## Model & params
 
-Provider stack, checked in this order (see [ARCHITECTURE.md](./ARCHITECTURE.md#why-this-split) for the "why free-tier-first" reasoning):
+OpenRouter (OpenAI-compatible API), one provider, model selected by `OPENROUTER_MODEL` (see [ARCHITECTURE.md](./ARCHITECTURE.md#secrets) — defaults to a free-pool model). One HTTP client, one endpoint, and swapping models is an env-var change rather than a code change; treat the exact free model list as unstable — it's community-curated and rotates.
 
-| Priority | Provider | Model | Free tier | Notes |
-|---|---|---|---|---|
-| 1 (primary) | Groq | Llama 3.3 70B / Llama 4 Scout | 30 RPM, 6K TPM, 14,400 req/day, no card | Fast inference — good fit for the POC's synchronous (blocking) API. Native JSON-mode/tool-calling for schema-forced output. |
-| 2 (secondary fallback) | OpenRouter | Pick from its free pool (DeepSeek R1, Llama 3.3 70B, Qwen3, etc.) | 20 RPM, 50–1,000 req/day (higher after a one-time $10 top-up), no card | Backup when Groq is rate-limited; treat the exact free model list as unstable — it's community-curated and rotates. |
-
-Cloud-only by choice — no local model (e.g. Ollama). Keeping the POC on hosted providers avoids the ops weight of running/serving a local model just for a two-provider fallback chain; free-tier headroom across Groq + OpenRouter is enough for POC volume.
-
-`LLM_PROVIDER` env var selects the active one (see [ARCHITECTURE.md](./ARCHITECTURE.md#secrets)); the two prompts/schemas above don't change per provider.
+Cloud-only by choice — no local model (e.g. Ollama). Keeping the POC on a hosted provider avoids the ops weight of running/serving a local model; OpenRouter's free-pool headroom is enough for POC volume.
 
 **Explicitly not used for the POC:** Gemini's free tier — Google's terms allow using free-tier prompts/responses to improve its products, which is a bad default when the input is PII about real people. Revisit only with a paid (training-excluded) tier.
 

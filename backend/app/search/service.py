@@ -1,16 +1,20 @@
-"""Real search -> cluster -> deep dive -> extract pipeline. See .docs/LLM_PIPELINE.md and
-.docs/SCRAPING_SOURCES.md for the design this implements."""
+"""Real search -> cluster -> deep dive -> extract pipeline. See .docs/LLM_PIPELINE.md for the
+design this implements."""
 
+import re
 import uuid
 from collections.abc import Awaitable
 from typing import TypeVar
 
 from fastapi import HTTPException
 
+from app.config import get_settings
 from app.llm import service as llm
 from app.profile.types import ProfileResponse
 from app.scraping import service as scraping
+from app.serpapi import service as serpapi
 from app.searxng import service as searxng
+from app.searxng.types import SearxResult
 from app.shared.store import StoredCandidate, store
 from app.shared.types import Education, ProfileFields, SocialProfile, Source
 
@@ -18,8 +22,8 @@ from .types import Candidate, SearchResponse
 
 MAX_DEEP_DIVE_PAGES = 4
 
-# Per .docs/SCRAPING_SOURCES.md's social media discovery design: site: operators through the same
-# search provider, never platform-specific scraping.
+# Social discovery is site: operators through the same search provider, never platform-specific
+# scraping - only pages the platform already lets search engines index.
 SOCIAL_SITES = ["instagram.com", "facebook.com", "x.com", "twitter.com", "linkedin.com", "tiktok.com", "youtube.com"]
 
 T = TypeVar("T")
@@ -42,8 +46,34 @@ def _candidate_name(label: str) -> str:
     return label.split(",")[0].strip()
 
 
+def _names_overlap(expected: str, actual: str) -> bool:
+    """Loose token overlap, not exact match — "Marie Curie" vs "Maria Salomea Skłodowska-Curie"
+    is still the same person. ponytail: ascii-only tokenizing, so two names that are both entirely
+    non-ascii can false-negative; good enough as a guard against outright identity drift (the deep
+    dive latching onto a same-name-different-person page), not a full fuzzy-matching system."""
+
+    def tokens(s: str) -> set[str]:
+        return {t for t in re.findall(r"[a-z]+", s.lower()) if len(t) >= 3}
+
+    return bool(tokens(expected) & tokens(actual))
+
+
+async def _search(query: str, count: int) -> list[SearxResult]:
+    """SearXNG first; SerpAPI is the paid fallback for when SearXNG's engines are rate-limited or
+    blocked — only attempted if SERPAPI_KEY is configured, so local
+    dev with no key behaves exactly as before (including a SearXNG failure surfacing as-is)."""
+    if not get_settings().serpapi_key:
+        return await searxng.search(query, count=count)
+
+    try:
+        results = await searxng.search(query, count=count)
+    except Exception:  # noqa: BLE001 - a fallback is configured, so try it before surfacing an error
+        results = []
+    return results or await serpapi.search(query, count=count)
+
+
 async def _upstream(awaitable: Awaitable[T]) -> T:
-    """Runs a SearXNG/Gemini call, translating any failure into the documented error shape
+    """Runs a SearXNG/OpenRouter call, translating any failure into the documented error shape
     instead of letting a raw exception (with library/stack-trace detail) escape to the client."""
     try:
         return await awaitable
@@ -60,8 +90,8 @@ async def run_search(name: str, filters: dict[str, object]) -> SearchResponse:
     query = _build_query(name, filters)
     social_query = f"{query} (" + " OR ".join(f"site:{s}" for s in SOCIAL_SITES) + ")"
 
-    broad = await _upstream(searxng.search(query, count=10))
-    social = await _upstream(searxng.search(social_query, count=6))
+    broad = await _upstream(_search(query, count=10))
+    social = await _upstream(_search(social_query, count=6))
     all_results = broad + social
 
     if not all_results:
@@ -100,22 +130,22 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
             404, detail={"error": "not_found", "message": "candidate_id does not exist for this search"}
         )
 
-    # match.label already carries the disambiguators (name, occupation, city) SCRAPING_SOURCES.md
-    # calls for - match.summary is a full sentence, not query material; appending it just made
+    # match.label already carries the disambiguators (name, occupation, city) the deep dive needs -
+    # match.summary is a full sentence, not query material; appending it just made
     # the query long and redundant enough that SearXNG's engines sometimes matched nothing at all.
-    results = await _upstream(searxng.search(match.label, count=MAX_DEEP_DIVE_PAGES))
+    results = await _upstream(_search(match.label, count=MAX_DEEP_DIVE_PAGES))
     if not results:
         # Rare (a less-documented person), but the disambiguated query can still come up empty -
         # retry with just the name before giving up on the whole profile.
         fallback_query = _candidate_name(match.label)
         if fallback_query and fallback_query != match.label:
-            results = await _upstream(searxng.search(fallback_query, count=MAX_DEEP_DIVE_PAGES))
+            results = await _upstream(_search(fallback_query, count=MAX_DEEP_DIVE_PAGES))
 
     pages: list[tuple[str, str, str]] = []
     for r in results:
         text = await scraping.fetch_text(r.url)
         # Direct fetch is best-effort (robots.txt, bot-blocking, timeouts all skip silently per
-        # .docs/SCRAPING_SOURCES.md) - fall back to the search snippet rather than losing the page.
+        # app/scraping/service.py) - fall back to the search snippet rather than losing the page.
         pages.append((r.url, r.title, text or r.content))
 
     if not pages:
@@ -134,6 +164,19 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
         )
 
     extracted = await _upstream(llm.extract_profile(match.label, match.summary, pages))
+
+    # Deep-dive pages can drift onto a same-name-different-person page (a common surname, a stale
+    # fallback source) - catch it here rather than silently showing the wrong person's profile.
+    expected_name = _candidate_name(match.label)
+    extracted_names = [extracted.fields.full_name, *extracted.fields.aliases]
+    if not any(_names_overlap(expected_name, n) for n in extracted_names):
+        raise HTTPException(
+            502,
+            detail={
+                "error": "upstream_error",
+                "message": "extracted profile name doesn't match the selected candidate",
+            },
+        )
 
     profile_id = f"p_{uuid.uuid4().hex[:8]}"
     profile = ProfileResponse(

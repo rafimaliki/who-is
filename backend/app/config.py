@@ -10,14 +10,17 @@ from functools import lru_cache
 @dataclass(frozen=True)
 class Settings:
     searxng_url: str
-    gemini_api_key: str
-    gemini_model: str
+    openrouter_api_key: str
+    openrouter_model: str
+    serpapi_key: str
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
-        gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
-        gemini_model=os.environ.get("GEMINI_MODEL", "gemini-flash-latest"),
+        openrouter_api_key=os.environ.get("OPENROUTER_API_KEY", ""),
+        openrouter_model=os.environ.get("OPENROUTER_MODEL", "dots-studio/dots-3-note-preview:free"),
+        # Optional - the search fallback below only fires when this is set.
+        serpapi_key=os.environ.get("SERPAPI_KEY", ""),
     )

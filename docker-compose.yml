@@ -27,8 +27,11 @@ services:
     environment:
       # Server-side: reaches SearXNG over the compose network, not the host-published port.
       - SEARXNG_URL=http://searxng:8080
-      - GEMINI_API_KEY=${GEMINI_API_KEY:?set GEMINI_API_KEY in a .env file at the repo root}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-flash-latest}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in a .env file at the repo root}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-dots-studio/dots-3-note-preview:free}
+      # Optional - paid fallback for when SearXNG's engines are rate-limited/blocked. Unset means
+      # no fallback, same behavior as before this existed.
+      - SERPAPI_KEY=${SERPAPI_KEY:-}
     depends_on:
       - searxng
 

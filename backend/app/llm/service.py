@@ -1,20 +1,40 @@
-"""Gemini calls for clustering and extraction — the two calls in .docs/LLM_PIPELINE.md.
-Structured output only (Pydantic response_schema), never free-text parsing, per that doc's hard
-rule."""
+"""OpenRouter (OpenAI-compatible) calls for clustering and extraction — the two calls in
+.docs/LLM_PIPELINE.md. Structured output only (JSON schema derived from the Pydantic models in
+.types), never free-text parsing, per that doc's hard rule."""
 
-from google import genai
-from google.genai import types
+import httpx
+from pydantic import BaseModel
 
 from app.config import get_settings
 
 from .types import ClusterOutput, ExtractOutput
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-def _client() -> genai.Client:
+
+async def _generate(prompt: str, schema_name: str, schema: type[BaseModel]) -> str:
     settings = get_settings()
-    if not settings.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set")
-    return genai.Client(api_key=settings.gemini_api_key)
+    if not settings.openrouter_api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        res = await client.post(
+            OPENROUTER_URL,
+            headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
+            json={
+                "model": settings.openrouter_model,
+                "temperature": 0.0,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {"name": schema_name, "schema": schema.model_json_schema()},
+                },
+            },
+        )
+        res.raise_for_status()
+        data = res.json()
+
+    return data["choices"][0]["message"]["content"]
 
 
 def _format_results(results: list[tuple[str, str, str]]) -> str:
@@ -65,17 +85,8 @@ async def cluster_candidates(
     filters_text = "".join(f", {k}={v}" for k, v in filters.items() if v)
     prompt = CLUSTER_PROMPT.format(name=name, filters=filters_text, results=_format_results(results))
 
-    settings = get_settings()
-    response = await _client().aio.models.generate_content(
-        model=settings.gemini_model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.0,
-            response_mime_type="application/json",
-            response_schema=ClusterOutput,
-        ),
-    )
-    return ClusterOutput.model_validate_json(response.text)
+    content = await _generate(prompt, "ClusterOutput", ClusterOutput)
+    return ClusterOutput.model_validate_json(content)
 
 
 async def extract_profile(candidate_label: str, candidate_summary: str, pages: list[tuple[str, str, str]]) -> ExtractOutput:
@@ -84,14 +95,5 @@ async def extract_profile(candidate_label: str, candidate_summary: str, pages: l
         candidate_label=candidate_label, candidate_summary=candidate_summary, pages=_format_results(pages)
     )
 
-    settings = get_settings()
-    response = await _client().aio.models.generate_content(
-        model=settings.gemini_model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.0,
-            response_mime_type="application/json",
-            response_schema=ExtractOutput,
-        ),
-    )
-    return ExtractOutput.model_validate_json(response.text)
+    content = await _generate(prompt, "ExtractOutput", ExtractOutput)
+    return ExtractOutput.model_validate_json(content)

@@ -7,7 +7,7 @@ OSINT-style person profiler. Type a name, get a structured, source-cited profile
 ## Quick start
 
 ```sh
-cp .env.example .env   # then fill in GEMINI_API_KEY (get one at aistudio.google.com/apikey)
+cp .env.example .env   # then fill in OPENROUTER_API_KEY (get one at openrouter.ai/keys)
 docker compose up
 ```
 
