@@ -1,7 +1,7 @@
 """Real search -> cluster -> deep dive -> extract pipeline. See .docs/LLM_PIPELINE.md for the
 design this implements."""
 
-import re
+import asyncio
 import uuid
 from collections.abc import Awaitable
 from typing import TypeVar
@@ -18,27 +18,16 @@ from app.searxng.types import SearxResult
 from app.shared.store import StoredCandidate, store
 from app.shared.types import Education, ProfileFields, SocialProfile, Source
 
+from . import queries
 from .types import Candidate, SearchResponse
 
 MAX_DEEP_DIVE_PAGES = 4
 
-# Social discovery is site: operators through the same search provider, never platform-specific
-# scraping - only pages the platform already lets search engines index.
-SOCIAL_SITES = ["instagram.com", "facebook.com", "x.com", "twitter.com", "linkedin.com", "tiktok.com", "youtube.com"]
+# How many ranked results reach the clustering LLM. Past this it's mostly long-tail noise, and the
+# prompt gets long enough to hurt clustering quality.
+MAX_CLUSTER_RESULTS = 20
 
 T = TypeVar("T")
-
-
-def _build_query(name: str, filters: dict[str, object]) -> str:
-    parts = [name]
-    for key in ("country", "age_range", "occupation"):
-        value = filters.get(key)
-        if value:
-            parts.append(str(value))
-    aliases = filters.get("aliases")
-    if aliases:
-        parts.extend(str(a) for a in aliases)
-    return " ".join(parts)
 
 
 def _candidate_name(label: str) -> str:
@@ -47,29 +36,66 @@ def _candidate_name(label: str) -> str:
 
 
 def _names_overlap(expected: str, actual: str) -> bool:
-    """Loose token overlap, not exact match — "Marie Curie" vs "Maria Salomea Skłodowska-Curie"
-    is still the same person. ponytail: ascii-only tokenizing, so two names that are both entirely
-    non-ascii can false-negative; good enough as a guard against outright identity drift (the deep
-    dive latching onto a same-name-different-person page), not a full fuzzy-matching system."""
+    """Whether `actual` plausibly names the same person as `expected`.
 
-    def tokens(s: str) -> set[str]:
-        return {t for t in re.findall(r"[a-z]+", s.lower()) if len(t) >= 3}
+    Sharing one common given name is not enough — "Ahmad Rafi Maliki" vs "Ahmad Fauzi" is a
+    different person. Two shared tokens is the normal bar; a single shared *surname* also passes,
+    so "Marie Curie" still matches "Maria Salomea Skłodowska-Curie".
 
-    return bool(tokens(expected) & tokens(actual))
+    ponytail: token overlap, not real entity resolution. It catches outright identity drift (the
+    deep dive latching onto a same-name-different-person page); it won't catch a transliteration
+    sharing no tokens at all. Swap in proper fuzzy matching only if that shows up in practice.
+    """
+    expected_tokens = queries.name_tokens(expected)
+    actual_tokens = set(queries.name_tokens(actual))
+    if not expected_tokens or not actual_tokens:
+        return False
+
+    shared = [t for t in expected_tokens if t in actual_tokens]
+    if len(shared) >= 2 or len(expected_tokens) == 1:
+        return bool(shared)
+    # A lone shared token only counts when it's a distinctive surname, never the given name.
+    return shared == expected_tokens[-1:] and len(expected_tokens[-1]) >= 5
 
 
 async def _search(query: str, count: int) -> list[SearxResult]:
-    """SearXNG first; SerpAPI is the paid fallback for when SearXNG's engines are rate-limited or
-    blocked — only attempted if SERPAPI_KEY is configured, so local
-    dev with no key behaves exactly as before (including a SearXNG failure surfacing as-is)."""
+    """SerpAPI (real Google results) when a key is configured, SearXNG otherwise.
+
+    SerpAPI is primary rather than a fallback because the self-hosted SearXNG engines silently drop
+    "exact phrase" quoting and site: operators — for a low-profile person that turns every query
+    into a first-name match and buries them under famous namesakes. SearXNG stays the free path
+    when no key is set, and the fallback when SerpAPI errors.
+    """
     if not get_settings().serpapi_key:
         return await searxng.search(query, count=count)
 
     try:
-        results = await searxng.search(query, count=count)
-    except Exception:  # noqa: BLE001 - a fallback is configured, so try it before surfacing an error
+        results = await serpapi.search(query, count=count)
+    except Exception:  # noqa: BLE001 - a free fallback exists, so try it before surfacing an error
         results = []
-    return results or await serpapi.search(query, count=count)
+    return results or await searxng.search(query, count=count)
+
+
+async def _search_many(query_list: list[str], count: int) -> list[SearxResult]:
+    """Runs the query set concurrently and merges results, first-seen URL wins.
+
+    Concurrent because these are independent network calls on a synchronous request path — running
+    four in sequence multiplies the user's wait for no benefit.
+    """
+    batches = await asyncio.gather(*(_search(q, count=count) for q in query_list), return_exceptions=True)
+
+    merged: dict[str, SearxResult] = {}
+    errors: list[BaseException] = []
+    for batch in batches:
+        if isinstance(batch, BaseException):
+            errors.append(batch)
+            continue
+        for result in batch:
+            merged.setdefault(result.url, result)
+
+    if not merged and errors:
+        raise errors[0]  # every query failed - surface it rather than reporting "nobody found"
+    return list(merged.values())
 
 
 async def _upstream(awaitable: Awaitable[T]) -> T:
@@ -87,17 +113,16 @@ async def _upstream(awaitable: Awaitable[T]) -> T:
 
 
 async def run_search(name: str, filters: dict[str, object]) -> SearchResponse:
-    query = _build_query(name, filters)
-    social_query = f"{query} (" + " OR ".join(f"site:{s}" for s in SOCIAL_SITES) + ")"
-
-    broad = await _upstream(_search(query, count=10))
-    social = await _upstream(_search(social_query, count=6))
-    all_results = broad + social
+    all_results = await _upstream(_search_many(queries.build(name, filters), count=10))
 
     if not all_results:
         return SearchResponse(search_id=f"s_{uuid.uuid4().hex[:8]}", candidates=[], auto_selected=False)
 
-    result_tuples = [(r.url, r.title, r.content) for r in all_results]
+    # Rank before clustering: a result missing a name token is about someone else, and letting it
+    # through means the LLM clusters famous namesakes instead of the person actually asked for.
+    result_tuples = queries.rank(
+        name, [(r.url, r.title, r.content) for r in all_results], limit=MAX_CLUSTER_RESULTS
+    )
     cluster_filters = {k: v for k, v in filters.items() if v}
     clustered = await _upstream(llm.cluster_candidates(name, cluster_filters, result_tuples))
 
@@ -130,33 +155,35 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
             404, detail={"error": "not_found", "message": "candidate_id does not exist for this search"}
         )
 
-    # match.label already carries the disambiguators (name, occupation, city) the deep dive needs -
-    # match.summary is a full sentence, not query material; appending it just made
-    # the query long and redundant enough that SearXNG's engines sometimes matched nothing at all.
-    results = await _upstream(_search(match.label, count=MAX_DEEP_DIVE_PAGES))
-    if not results:
-        # Rare (a less-documented person), but the disambiguated query can still come up empty -
-        # retry with just the name before giving up on the whole profile.
-        fallback_query = _candidate_name(match.label)
-        if fallback_query and fallback_query != match.label:
-            results = await _upstream(_search(fallback_query, count=MAX_DEEP_DIVE_PAGES))
+    # match.label carries the disambiguators (name, occupation, city); the expanded query set adds
+    # the exact-phrase and handle searches that actually surface a low-profile person's own pages.
+    expected_name = _candidate_name(match.label)
+    deep_dive_queries = [match.label, *queries.build(expected_name, {})]
+    results = queries.rank(
+        expected_name,
+        [(r.url, r.title, r.content) for r in await _upstream(_search_many(deep_dive_queries, count=10))],
+        limit=MAX_DEEP_DIVE_PAGES,
+    )
+    # Clustering already proved these URLs are about this candidate, so they're worth fetching
+    # alongside the fresh search hits rather than only as a last resort.
+    for url in match.source_urls:
+        if len(results) >= MAX_DEEP_DIVE_PAGES + 2:
+            break
+        if all(url != existing_url for existing_url, _, _ in results):
+            results.append((url, url, ""))
 
     pages: list[tuple[str, str, str]] = []
-    for r in results:
-        text = await scraping.fetch_text(r.url)
+    photos: list[tuple[str, str]] = []  # (image_url, page it came from)
+    for url, title, snippet in results:
+        page = await scraping.fetch_page(url)
         # Direct fetch is best-effort (robots.txt, bot-blocking, timeouts all skip silently per
         # app/scraping/service.py) - fall back to the search snippet rather than losing the page.
-        pages.append((r.url, r.title, text or r.content))
-
-    if not pages:
-        # Both scoped queries came up empty — can happen even for an easily-searchable person if
-        # every SearXNG engine is currently rate-limited/blocked, not just for an obscure one.
-        # Fall back to the URLs that already grounded this candidate during clustering rather than
-        # failing the whole profile when we already have public pages for them.
-        for url in match.source_urls[:MAX_DEEP_DIVE_PAGES]:
-            text = await scraping.fetch_text(url)
-            if text:
-                pages.append((url, url, text))
+        text, image = page if page else (None, None)
+        if not text and not snippet:
+            continue
+        pages.append((url, title, text or snippet))
+        if image:
+            photos.append((image, url))
 
     if not pages:
         raise HTTPException(
@@ -167,7 +194,6 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
 
     # Deep-dive pages can drift onto a same-name-different-person page (a common surname, a stale
     # fallback source) - catch it here rather than silently showing the wrong person's profile.
-    expected_name = _candidate_name(match.label)
     extracted_names = [extracted.fields.full_name, *extracted.fields.aliases]
     if not any(_names_overlap(expected_name, n) for n in extracted_names):
         raise HTTPException(
@@ -177,6 +203,14 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
                 "message": "extracted profile name doesn't match the selected candidate",
             },
         )
+
+    # Photos come from the pages themselves (og:image), not from the LLM: a scraped preview image
+    # has a real page behind it by construction, which is what the no-field-without-a-source rule
+    # actually asks for. The LLM's own photo guesses are kept but come second.
+    all_photos = list(dict.fromkeys([*(image for image, _ in photos), *extracted.fields.photos]))
+    photo_sources = [
+        Source(url=page_url, title=page_url, snippet=image, supports_field="photos") for image, page_url in photos
+    ]
 
     profile_id = f"p_{uuid.uuid4().hex[:8]}"
     profile = ProfileResponse(
@@ -190,10 +224,10 @@ async def run_select(search_id: str, candidate_id: str) -> ProfileResponse:
             employer=extracted.fields.employer,
             education=[Education(**e.model_dump()) for e in extracted.fields.education],
             social_profiles=[SocialProfile(**s.model_dump()) for s in extracted.fields.social_profiles],
-            photos=extracted.fields.photos,
+            photos=all_photos,
             summary=extracted.fields.summary,
         ),
-        sources=[Source(**s.model_dump()) for s in extracted.sources],
+        sources=[*(Source(**s.model_dump()) for s in extracted.sources), *photo_sources],
     )
     store.profiles[profile_id] = profile
     return profile

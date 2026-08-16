@@ -17,7 +17,7 @@ flowchart LR
         DB[(SQLite)]
     end
     SEARX[SearXNG<br/>self-hosted metasearch]
-    SERP[SerpAPI<br/>paid fallback, optional]
+    SERP[SerpAPI<br/>Google results, primary when keyed]
     LLM[OpenRouter<br/>free-tier cloud LLM]
 
     U --> L --> AI
@@ -37,7 +37,7 @@ flowchart LR
 | Marketing site | Astro (SSG) | Landing, how-it-works, SEO. Zero JS by default. |
 | App island | React (or Preact), mounted in one Astro page | Search form, candidate picker, profile view. `noindex`. |
 | Backend | FastAPI (Python, async) | Orchestrates search → cluster → deep dive → extract. Only place holding API keys. |
-| Search provider | SearXNG (self-hosted, primary) + SerpAPI (paid fallback, optional) | Broad + scoped queries, including per-platform `site:` searches. |
+| Search provider | SerpAPI (primary when `SERPAPI_KEY` is set) + SearXNG (self-hosted, free fallback) | Expanded query set per search: exact-phrase name, per-platform `site:` dork, derived handles. |
 | Deep-dive fetch | `httpx` + `BeautifulSoup` | Server-side page fetch on chosen candidate's links only — general web pages and, best-effort, public social profile meta tags. No CORS issue — runs on the backend, not the browser. |
 | LLM | OpenRouter, structured output, cloud-hosted | Clustering call + extraction call. See [LLM_PIPELINE.md](./LLM_PIPELINE.md) for the free-tier-first rationale. |
 | Storage | SQLite (file-based) | Searches, candidates, profiles, sources. One file, zero ops for POC. |
@@ -48,7 +48,7 @@ flowchart LR
 - One React island for the actual app: the search/candidate/profile flow is inherently interactive and per-user — no SEO value, so it doesn't need to be static.
 - FastAPI, not a client-only app: real page scraping needs a server (browser `fetch` hits CORS on almost every third-party site) and API keys can't live in browser JS beyond a personal-use POC.
 - SQLite, not Postgres: POC is single-instance, no concurrent-write pressure yet. Swap when that changes — don't build for it now.
-- SearXNG self-hosted, not a paid search API, as the primary provider: it's free with no query cap and no API key, and it runs as just another container next to the app. Google Custom Search — the original pick — closed to new customers in 2025 and shuts down entirely on 2027-01-01, so it's not viable for a fresh signup. SerpAPI is the paid fallback, tried per-query only when SearXNG comes back empty — unset its key and the stack runs free-tier only.
+- SerpAPI primary, SearXNG fallback: the self-hosted SearXNG engines silently drop `"exact phrase"` quoting and `site:` operators, which turns a search for a low-profile person into a first-name match and buries them under famous namesakes. SerpAPI returns real Google results and honors both. SearXNG stays as the free path when no key is set and as the fallback when SerpAPI errors, so the stack still runs key-free — just with materially worse recall. Google Custom Search — the original pick — closed to new customers in 2025, so it's not viable for a fresh signup.
 - OpenRouter, not a paid frontier model, for the POC LLM: it's cloud-hosted with a workable free tier, so there's no local-model ops weight (GPU/RAM sizing, model pulls, slower cold starts) to carry for a POC. Swap in a paid model later only once free-tier throughput or extraction quality is the actual bottleneck. Details: [LLM_PIPELINE.md](./LLM_PIPELINE.md).
 
 ## Local development (Docker)
@@ -92,6 +92,6 @@ flowchart TB
 | `OPENROUTER_API_KEY` | backend | LLM provider (cloud) for clustering/extraction. Required — get one at openrouter.ai/keys. |
 | `OPENROUTER_MODEL` | backend | Defaults to `dots-studio/dots-3-note-preview:free`. |
 | `SEARXNG_URL` | backend | Points at the `searxng` compose service (e.g. `http://searxng:8080`) — not a secret, just config. |
-| `SERPAPI_KEY` | backend | Paid search fallback, used per-query only when SearXNG comes back empty. Optional for local dev (SearXNG needs no key at all). |
+| `SERPAPI_KEY` | backend | Paid search provider, primary when set. Optional — without it the stack falls back to SearXNG alone, which finds low-profile people poorly. |
 
 All secrets live server-side only. The frontend never sees an API key. SearXNG needs no key for search; `OPENROUTER_API_KEY` is the one signup required to exercise the LLM calls end-to-end.

@@ -128,7 +128,7 @@ async def test_select_then_get_profile_round_trip(monkeypatch: pytest.MonkeyPatc
     search_res = await search_service.run_search("Jane Doe", {})
     candidate_id = search_res.candidates[0].id
 
-    async def no_fetch(_url: str) -> str | None:
+    async def no_fetch(_url: str) -> tuple[str, str | None] | None:
         return None  # forces the search-snippet fallback path
 
     async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
@@ -148,7 +148,7 @@ async def test_select_then_get_profile_round_trip(monkeypatch: pytest.MonkeyPatc
             sources=[ExtractSource(url="https://a.example", title="Title", snippet="Snippet", supports_field="location_current")],
         )
 
-    monkeypatch.setattr(scraping, "fetch_text", no_fetch)
+    monkeypatch.setattr(scraping, "fetch_page", no_fetch)
     monkeypatch.setattr(llm, "extract_profile", fake_extract)
 
     profile = await search_service.run_select(search_res.search_id, candidate_id)
@@ -158,9 +158,11 @@ async def test_select_then_get_profile_round_trip(monkeypatch: pytest.MonkeyPatc
     assert fetched == profile
 
 
-async def test_select_falls_back_to_bare_name_when_the_disambiguated_query_finds_nothing(
+async def test_select_still_finds_pages_when_the_disambiguated_label_query_finds_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The deep dive runs a query set, not one query — the full "Name, occupation, city" label can
+    come back empty (it over-constrains) while the exact-phrase and handle queries still hit."""
     async def one_result(*_a: object, **_k: object) -> list[SearxResult]:
         return [_result("https://a.example")]
 
@@ -203,26 +205,26 @@ async def test_select_falls_back_to_bare_name_when_the_disambiguated_query_finds
             sources=[],
         )
 
-    async def no_fetch(_url: str) -> str | None:
+    async def no_fetch(_url: str) -> tuple[str, str | None] | None:
         return None
 
     monkeypatch.setattr(searxng, "search", query_sensitive_search)
-    monkeypatch.setattr(scraping, "fetch_text", no_fetch)
+    monkeypatch.setattr(scraping, "fetch_page", no_fetch)
     monkeypatch.setattr(llm, "extract_profile", fake_extract)
 
     profile = await search_service.run_select(search_res.search_id, candidate_id)
 
     assert profile.fields.full_name == "Jane Doe"
-    assert queries_seen == ["Jane Doe, kite surfing instructor, Nome", "Jane Doe"]
+    assert "Jane Doe, kite surfing instructor, Nome" in queries_seen  # the label is still tried
+    assert '"Jane Doe"' in queries_seen  # ...alongside the exact-phrase query that actually hits
 
 
-async def test_select_falls_back_to_clustering_source_urls_when_every_scoped_query_is_empty(
+async def test_select_uses_clustering_source_urls_when_every_scoped_query_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Covers the real incident this guards against: every SearXNG engine rate-limited/blocked at
-    once (confirmed live — brave/google cse suspended, startpage CAPTCHA'd, duckduckgo timing
-    out), so even an easily-searchable person's scoped deep-dive query comes back with zero
-    results. The candidate's own clustering source_urls are the fallback."""
+    """Covers the real incident this guards against: every search engine rate-limited/blocked at
+    once, so even an easily-searchable person's scoped deep-dive queries come back with zero
+    results. The candidate's own clustering source_urls carry the profile on their own."""
 
     async def one_result(*_a: object, **_k: object) -> list[SearxResult]:
         return [_result("https://a.example")]
@@ -248,9 +250,9 @@ async def test_select_falls_back_to_clustering_source_urls_when_every_scoped_que
 
     fetched_urls: list[str] = []
 
-    async def fetch_only_source_urls(url: str) -> str | None:
+    async def fetch_only_source_urls(url: str) -> tuple[str, str | None] | None:
         fetched_urls.append(url)
-        return "Jane Doe is an engineer." if url == "https://c.example" else None
+        return ("Jane Doe is an engineer.", None) if url == "https://c.example" else None
 
     async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
         return ExtractOutput(
@@ -263,7 +265,7 @@ async def test_select_falls_back_to_clustering_source_urls_when_every_scoped_que
         )
 
     monkeypatch.setattr(searxng, "search", every_engine_down)
-    monkeypatch.setattr(scraping, "fetch_text", fetch_only_source_urls)
+    monkeypatch.setattr(scraping, "fetch_page", fetch_only_source_urls)
     monkeypatch.setattr(llm, "extract_profile", fake_extract)
 
     profile = await search_service.run_select(search_res.search_id, candidate_id)
@@ -348,7 +350,7 @@ async def test_select_rejects_a_profile_whose_extracted_name_does_not_match_the_
     search_res = await search_service.run_search("Jane Doe", {})
     candidate_id = search_res.candidates[0].id
 
-    async def no_fetch(_url: str) -> str | None:
+    async def no_fetch(_url: str) -> tuple[str, str | None] | None:
         return None
 
     async def fake_extract(*_a: object, **_k: object) -> ExtractOutput:
@@ -368,7 +370,7 @@ async def test_select_rejects_a_profile_whose_extracted_name_does_not_match_the_
             sources=[],
         )
 
-    monkeypatch.setattr(scraping, "fetch_text", no_fetch)
+    monkeypatch.setattr(scraping, "fetch_page", no_fetch)
     monkeypatch.setattr(llm, "extract_profile", fake_extract)
 
     with pytest.raises(HTTPException) as exc_info:
