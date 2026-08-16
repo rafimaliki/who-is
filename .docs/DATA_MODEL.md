@@ -96,7 +96,7 @@ erDiagram
 | `occupation` | string | yes | "Software Engineer" |
 | `employer` | string | yes | "Acme Corp" |
 | `education` | object[] | yes | [{institution, degree, year}] |
-| `social_profiles` | object[] | yes | [{platform, url, confidence}] — `platform` ∈ `instagram`, `facebook`, `x`, `linkedin`, `tiktok`, `youtube`, `github`, `other` (see [SCRAPING_SOURCES.md](./SCRAPING_SOURCES.md#social-media-discovery-instagram-facebook-x-linkedin-tiktok-youtube)) |
+| `social_profiles` | object[] | yes | [{platform, url, confidence}] — `platform` ∈ `instagram`, `facebook`, `x`, `linkedin`, `tiktok`, `youtube`, `github`, `other` |
 | `photos` | string[] | yes | image URLs |
 | `summary` | string | no | 2-3 sentence LLM synthesis |
 

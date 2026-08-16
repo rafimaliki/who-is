@@ -1,5 +1,4 @@
-"""Direct page fetch for the deep-dive step — see .docs/SCRAPING_SOURCES.md's "Deep dive" rules:
-respect robots.txt, identify the tool with a real User-Agent, rate-limit per domain, skip (don't
+"""Direct page fetch for the deep-dive step. Rules: respect robots.txt, identify the tool with a real User-Agent, rate-limit per domain, skip (don't
 fail the whole profile) on any single page's error."""
 
 import asyncio
@@ -10,7 +9,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from bs4 import BeautifulSoup
 
-USER_AGENT = "who-is-bot/0.1 (+https://github.com/rafimaliki/who-is; POC, see .docs/SCRAPING_SOURCES.md)"
+USER_AGENT = "who-is-bot/0.1 (+https://github.com/rafimaliki/who-is; POC)"
 MIN_SECONDS_BETWEEN_REQUESTS_PER_DOMAIN = 1.0
 MAX_TEXT_CHARS = 5000
 

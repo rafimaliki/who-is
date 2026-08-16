@@ -1,4 +1,4 @@
-"""Gemini I/O shapes — kept separate from the API's own types (app/search/types.py,
+"""OpenRouter I/O shapes — kept separate from the API's own types (app/search/types.py,
 app/profile/types.py). The LLM's candidate output carries `source_urls` for grounding, which the
 API's Candidate never exposes to the frontend; llm/service.py's caller maps between the two."""
 
