@@ -54,14 +54,18 @@ Python's own package system instead of dots-in-filenames (which Python can't imp
 - `app/config.py` — environment-backed settings (`SEARXNG_URL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`)
 - `app/shared/` — `types.py` (shapes genuinely used by both search and profile — `ProfileFields`,
   `Source`, etc.) and `store.py` (the in-memory search/profile store both domains read or write)
-- `app/search/` — `POST /api/search` + `POST /api/search/{id}/select`. `service.py` is the
+- `app/search/` — `POST /api/search` + `POST /api/search/{id}/select`. `queries.py` is the OSINT
+  layer: exact-phrase/site:/handle query expansion and the name-coverage ranking that drops results
+  about a namesake before they ever reach the LLM. `service.py` is the
   pipeline orchestration: builds the query, calls SearXNG, calls the LLM to cluster, and — on
   select — runs the scoped deep-dive search + page fetch + extraction
 - `app/profile/` — `GET /api/profile/{id}`, reading from the shared store
 - `app/llm/` — OpenRouter calls (`cluster_candidates`, `extract_profile`), structured output only
   (Pydantic `response_schema`), never free-text parsing
 - `app/searxng/` — thin JSON-API client for the self-hosted SearXNG instance
-- `app/scraping/` — direct page fetch for the deep-dive step: robots.txt, real User-Agent,
+- `app/scraping/` — direct page fetch for the deep-dive step, returning readable text plus the
+  page's `og:image` (where profile photos come from): robots.txt, real User-Agent,
   per-domain rate limit, skip-not-fail on error
+- `tests/test_queries.py` — the query-expansion and ranking rules, pure functions, no network
 - `tests/test_search_service.py` — `app/search/service.py`'s orchestration, error mapping, and
   the store round trip, with SearXNG/OpenRouter/page-fetch mocked

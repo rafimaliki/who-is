@@ -3,7 +3,7 @@ fail the whole profile) on any single page's error."""
 
 import asyncio
 import time
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -40,8 +40,26 @@ async def _respect_rate_limit(domain: str) -> None:
     _last_fetch_at[domain] = time.monotonic()
 
 
-async def fetch_text(url: str) -> str | None:
-    """Fetches a page and returns its readable text, or None if it should be (or was) skipped."""
+def _image_url(soup: BeautifulSoup, page_url: str) -> str | None:
+    """The page's own preview image — the `og:image`/`twitter:image` every platform already serves
+    to link unfurlers. Public metadata on a public page, no login and no platform API involved."""
+    for selector, attr in (
+        ('meta[property="og:image"]', "content"),
+        ('meta[name="twitter:image"]', "content"),
+        ('link[rel="image_src"]', "href"),
+    ):
+        tag = soup.select_one(selector)
+        if tag is None:
+            continue
+        value = tag.get(attr)
+        if isinstance(value, str) and value.strip():
+            return urljoin(page_url, value.strip())
+    return None
+
+
+async def fetch_page(url: str) -> tuple[str, str | None] | None:
+    """Fetches a page and returns (readable text, preview image URL), or None if it should be (or
+    was) skipped."""
     domain = urlparse(url).netloc
 
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
@@ -56,7 +74,8 @@ async def fetch_text(url: str) -> str | None:
             return None
 
     soup = BeautifulSoup(res.text, "html.parser")
+    image = _image_url(soup, str(res.url))
     for tag in soup(["script", "style", "nav", "footer", "header"]):
         tag.decompose()
     text = " ".join(soup.get_text(separator=" ").split())
-    return text[:MAX_TEXT_CHARS]
+    return text[:MAX_TEXT_CHARS], image

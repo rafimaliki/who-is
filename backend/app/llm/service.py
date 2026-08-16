@@ -54,6 +54,7 @@ same person in different words belong in one cluster; a result describing a clea
 person (different city, job, age) is a separate cluster.
 
 Hard rules:
+- Only cluster people whose name actually matches "{name}". A result about someone who merely shares one name part (a famous person with the same first name, a different surname) is not a candidate — discard it. Returning zero candidates is correct and expected when nothing matches; returning a famous namesake is always wrong.
 - Every cluster must cite at least one source_urls entry drawn verbatim from the URLs above — never invent a cluster with no supporting result.
 - If the evidence is too thin to confidently tell two people apart, merge them into one cluster rather than over-splitting. Fewer, more confident clusters beat many low-confidence ones.
 - Do not invent details not present in the result titles/snippets above.
